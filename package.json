@@ -5,7 +5,7 @@
   "description": "Nafas Desktop Application",
   "private": true,
   "version": "0.0.1",
-  "main": "main.js",
+  "main": "main.cjs",
   "type": "module",
 "scripts": {
     "dev": "vite",
