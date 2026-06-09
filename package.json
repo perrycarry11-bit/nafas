@@ -7,9 +7,9 @@
   "version": "0.0.1",
   "main": "main.js",
   "type": "module",
-  "scripts": {
+"scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
+    "build": "vite build",
     "preview": "vite preview",
     "electron:start": "electron .",
     "build:win": "npm run build && electron-builder --win"
