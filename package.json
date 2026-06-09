@@ -12,7 +12,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "electron:start": "electron .",
-    "build:win": "npm run build && electron-builder --win"
+    "build:win": "npm run build && electron-builder --win -p never"
   },
   "build": {
     "appId": "com.nafas.app",
