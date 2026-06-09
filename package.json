@@ -1,5 +1,8 @@
 {
-  "name": "@figma/my-make-file",
+  "name": "nafas-app",
+  "productName": "Nafas",
+  "author": "Center Nafas",
+  "description": "Nafas Desktop Application",
   "private": true,
   "version": "0.0.1",
   "main": "main.js",
@@ -8,7 +11,23 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "electron:start": "electron ."
+    "electron:start": "electron .",
+    "build:win": "npm run build && electron-builder --win"
+  },
+  "build": {
+    "appId": "com.nafas.app",
+    "win": {
+      "target": "nsis"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "runAfterFinish": true
+    },
+    "directories": {
+      "output": "release"
+    }
   },
   "dependencies": {
     "@emotion/react": "11.14.0",
