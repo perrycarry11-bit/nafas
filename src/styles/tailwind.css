@@ -1,4 +1,48 @@
-@import 'tailwindcss' source(none);
-@source '../**/*.{js,ts,jsx,tsx}';
+@import "tailwindcss";
 
-@import 'tw-animate-css';
+/* استایل‌های پایه سیستم */
+:root {
+  --background: 0 0% 100%;
+  --foreground: 222.2 84% 4.9%;
+  --primary: 160 84% 39%;
+  --card: 0 0% 100%;
+  --border: 214.3 31.8% 91.4%;
+  --muted: 210 40% 96.1%;
+  --muted-foreground: 215.4 16.3% 46.9%;
+  --input-background: 0 0% 100%;
+}
+
+:root[data-theme="dark"] {
+  --background: 222.2 84% 4.9%;
+  --foreground: 210 40% 98%;
+  --primary: 160 84% 39%;
+  --card: 222.2 84% 4.9%;
+  --border: 217.2 32.6% 17.5%;
+  --muted: 217.2 32.6% 17.5%;
+  --muted-foreground: 215 20.2% 65.1%;
+  --input-background: 222.2 84% 4.9%;
+}
+
+body {
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+  font-family: Tahoma, Arial, sans-serif; /* فونت استاندارد برای ویندوزهای قدیمی */
+}
+
+/* 🔴 جادوی پشتیبانی از ویندوزهای قدیمی (سپر محافظ) 🔴 */
+@supports not (backdrop-filter: blur(1px)) {
+  .bg-card\/95,
+  .backdrop-blur-xl,
+  .backdrop-blur-sm,
+  .backdrop-blur {
+    /* اگر ویندوز قدیمی بود، به جای شیشه، رنگ توپر با کمی شفافیت نشان بده */
+    background-color: rgba(255, 255, 255, 0.98) !important;
+  }
+  
+  :root[data-theme="dark"] .bg-card\/95,
+  :root[data-theme="dark"] .backdrop-blur-xl,
+  :root[data-theme="dark"] .backdrop-blur-sm,
+  :root[data-theme="dark"] .backdrop-blur {
+    background-color: rgba(30, 41, 59, 0.98) !important;
+  }
+}
