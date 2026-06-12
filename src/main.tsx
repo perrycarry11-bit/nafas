@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import './styles/index.css';
 import './styles/fonts.css';
+import './styles/globals.css';
 
 function BootLoader() {
   const [AppComponent, setAppComponent] = useState<React.ComponentType | null>(null);
