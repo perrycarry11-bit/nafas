@@ -1,4 +1,5 @@
-import { Plus, Trash2, ChevronDown } from 'lucide-react';
+import type { Dispatch, SetStateAction } from 'react';
+import { Plus, Trash2, ChevronDown, Copy } from 'lucide-react';
 import { JalaliDatePicker } from './JalaliDatePicker';
 import { ImageUploader } from './ImageUploader';
 import { todayJalali, toPersianNumber } from '../utils/jalali';
@@ -30,11 +31,28 @@ interface Service {
 
 interface Mother {
   id: string;
+  remoteId?: string;
+  deviceId?: string;
+
+  provinceId?: string;
+  provinceName?: string;
+  provinceCode?: string;
+
+  countyId?: string;
+  countyName?: string;
+  countyCode?: string;
+
+  syncStatus?: 'synced' | 'pending' | 'pending_delete' | 'error';
+  syncError?: string;
+  updatedAt?: string;
+  deletedAt?: string | null;
+
+  trackingCode: string;
 
   firstName: string;
   lastName: string;
   fatherName: string;
-  motherName: string;
+  birthDate: string;
   nationalId: string;
 
   phone: string;
@@ -71,9 +89,9 @@ interface Mother {
 
 interface TabsProps {
   mother: Mother;
-  setMother: React.Dispatch<React.SetStateAction<Mother | null>>;
+  setMother: Dispatch<SetStateAction<Mother | null>>;
   tab: number;
-  setTab: React.Dispatch<React.SetStateAction<number>>;
+  setTab: Dispatch<SetStateAction<number>>;
   totalCosts: number;
 }
 
@@ -112,30 +130,125 @@ export function Tabs({ mother, setMother, tab, totalCosts }: TabsProps) {
     });
   };
 
+  async function copyTrackingCode() {
+    if (!mother.trackingCode) return;
+
+    try {
+      await navigator.clipboard.writeText(mother.trackingCode);
+      alert('کد پرونده کپی شد');
+    } catch {
+      alert('کپی کد پرونده انجام نشد');
+    }
+  }
+
   if (tab === 0) {
     return (
       <div className="bg-card border border-border rounded-xl p-6 space-y-4">
-        <h3 className="text-primary mb-2" style={{ fontSize: '1rem', fontWeight: 700 }}>
-          اطلاعات مادر، همسر، سکونت و بارداری
-        </h3>
+        <div className="flex items-start justify-between gap-4 mb-2">
+          <div>
+            <h3
+              className="text-primary mb-1"
+              style={{ fontSize: '1rem', fontWeight: 700 }}
+            >
+              اطلاعات فردی، همسر، سکونت و بارداری
+            </h3>
 
-        <div className="grid grid-cols-2 gap-4">
-          <TextInput label="نام مادر" value={mother.firstName} onChange={v => updateMother({ firstName: v })} />
-          <TextInput label="نام خانوادگی مادر" value={mother.lastName} onChange={v => updateMother({ lastName: v })} />
+            <p className="text-xs text-muted-foreground">
+              اطلاعات اصلی پرونده مادر، وضعیت بارداری و سکونت را در این بخش ثبت کنید.
+            </p>
+          </div>
 
-          <TextInput label="نام پدر مادر" value={mother.fatherName} onChange={v => updateMother({ fatherName: v })} />
-          <TextInput label="نام مادرِ مادر" value={mother.motherName} onChange={v => updateMother({ motherName: v })} />
+          <button
+            type="button"
+            onClick={copyTrackingCode}
+            className="shrink-0 inline-flex items-center gap-2 rounded-xl bg-primary/10 text-primary border border-primary/20 px-3 py-2 text-xs font-bold hover:bg-primary/15"
+          >
+            <Copy size={14} />
+            <span dir="ltr">{mother.trackingCode || 'بدون کد'}</span>
+          </button>
+        </div>
 
-          <TextInput label="کد ملی" value={mother.nationalId} onChange={v => updateMother({ nationalId: v })} />
-          <TextInput label="شماره تماس مادر" value={mother.phone} onChange={v => updateMother({ phone: v })} />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <ReadOnlyField
+            label="کد رهگیری پرونده"
+            value={mother.trackingCode || 'در حال ساخت'}
+          />
 
-          <TextInput label="شماره تماس دوم" value={mother.phone2} onChange={v => updateMother({ phone2: v })} />
-          <TextInput label="شماره تماس همسر" value={mother.husbandPhone} onChange={v => updateMother({ husbandPhone: v })} />
+          <ReadOnlyField
+            label="استان پرونده"
+            value={mother.provinceName || mother.province || '-'}
+          />
 
-          <TextInput label="شماره کارت" value={mother.cardNumber} onChange={v => updateMother({ cardNumber: v })} />
-          <TextInput label="شهر" value={mother.city} onChange={v => updateMother({ city: v })} />
+          <ReadOnlyField
+            label="شهرستان پرونده"
+            value={mother.countyName || '-'}
+          />
 
-          <TextInput label="استان" value={mother.province} onChange={v => updateMother({ province: v })} />
+          <TextInput
+            label="نام"
+            value={mother.firstName}
+            onChange={v => updateMother({ firstName: v })}
+          />
+
+          <TextInput
+            label="نام خانوادگی"
+            value={mother.lastName}
+            onChange={v => updateMother({ lastName: v })}
+          />
+
+          <TextInput
+            label="نام پدر"
+            value={mother.fatherName}
+            onChange={v => updateMother({ fatherName: v })}
+          />
+
+          <JalaliDatePicker
+            label="تاریخ تولد"
+            value={mother.birthDate}
+            onChange={v => updateMother({ birthDate: v })}
+          />
+
+          <TextInput
+            label="کد ملی"
+            value={mother.nationalId}
+            onChange={v => updateMother({ nationalId: v })}
+          />
+
+          <TextInput
+            label="شماره تماس"
+            value={mother.phone}
+            onChange={v => updateMother({ phone: v })}
+          />
+
+          <TextInput
+            label="شماره تماس دوم"
+            value={mother.phone2}
+            onChange={v => updateMother({ phone2: v })}
+          />
+
+          <TextInput
+            label="شماره تماس همسر"
+            value={mother.husbandPhone}
+            onChange={v => updateMother({ husbandPhone: v })}
+          />
+
+          <TextInput
+            label="شماره کارت"
+            value={mother.cardNumber}
+            onChange={v => updateMother({ cardNumber: v })}
+          />
+
+          <TextInput
+            label="شهر / محل سکونت"
+            value={mother.city}
+            onChange={v => updateMother({ city: v })}
+          />
+
+          <TextInput
+            label="استان متنی"
+            value={mother.province}
+            onChange={v => updateMother({ province: v })}
+          />
 
           <div>
             <Label text="وضعیت تأهل" />
@@ -146,11 +259,29 @@ export function Tabs({ mother, setMother, tab, totalCosts }: TabsProps) {
             />
           </div>
 
-          <TextInput label="تحصیلات مادر" value={mother.education} onChange={v => updateMother({ education: v })} />
-          <TextInput label="شغل مادر" value={mother.job} onChange={v => updateMother({ job: v })} />
+          <TextInput
+            label="تحصیلات"
+            value={mother.education}
+            onChange={v => updateMother({ education: v })}
+          />
 
-          <TextInput label="شغل همسر" value={mother.spouseJob} onChange={v => updateMother({ spouseJob: v })} />
-          <TextInput label="تحصیلات همسر" value={mother.spouseEducation} onChange={v => updateMother({ spouseEducation: v })} />
+          <TextInput
+            label="شغل"
+            value={mother.job}
+            onChange={v => updateMother({ job: v })}
+          />
+
+          <TextInput
+            label="شغل همسر"
+            value={mother.spouseJob}
+            onChange={v => updateMother({ spouseJob: v })}
+          />
+
+          <TextInput
+            label="تحصیلات همسر"
+            value={mother.spouseEducation}
+            onChange={v => updateMother({ spouseEducation: v })}
+          />
 
           <div>
             <Label text="نوع بیمه" />
@@ -217,12 +348,21 @@ export function Tabs({ mother, setMother, tab, totalCosts }: TabsProps) {
             onChange={v => updateMother({ dueDate: v })}
           />
 
-          <div className="col-span-2">
+          <div className="md:col-span-2">
             <Label text="وضعیت پرونده" />
             <SelectField
               value={mother.pregnancyStatus}
               onChange={v => updateMother({ pregnancyStatus: v })}
-              options={['در حال پیگیری', 'به دنیا آمده', 'لغو', 'سقط']}
+              options={[
+                'در حال پیگیری',
+                'به دنیا آمده',
+                'لغو',
+                'سقط',
+                'نیازمند پیگیری فوری',
+                'ارجاع به پزشک',
+                'نیازمند حمایت مالی',
+                'مختومه',
+              ]}
             />
           </div>
         </div>
@@ -265,7 +405,7 @@ export function Tabs({ mother, setMother, tab, totalCosts }: TabsProps) {
               }
             />
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <TextInput
                 label="نام فرزند"
                 value={child.name}
@@ -293,7 +433,7 @@ export function Tabs({ mother, setMother, tab, totalCosts }: TabsProps) {
                 onChange={v => updateChild(child.id, { disease: v })}
               />
 
-              <div className="col-span-2">
+              <div className="md:col-span-2">
                 <ImageUploader
                   label="عکس فرزند"
                   value={child.photo}
@@ -304,7 +444,9 @@ export function Tabs({ mother, setMother, tab, totalCosts }: TabsProps) {
           </div>
         ))}
 
-        {mother.children.length === 0 && <EmptyState text="هنوز فرزندی ثبت نشده است." />}
+        {mother.children.length === 0 && (
+          <EmptyState text="هنوز فرزندی ثبت نشده است." />
+        )}
 
         <button
           type="button"
@@ -339,6 +481,7 @@ export function Tabs({ mother, setMother, tab, totalCosts }: TabsProps) {
           <span className="text-primary" style={{ fontWeight: 600 }}>
             جمع کل هزینه‌ها
           </span>
+
           <span className="text-primary" style={{ fontWeight: 700 }}>
             {formatRial(totalCosts)}
           </span>
@@ -355,7 +498,7 @@ export function Tabs({ mother, setMother, tab, totalCosts }: TabsProps) {
               }
             />
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <TextInput
                 label="توضیح هزینه"
                 value={cost.title}
@@ -385,7 +528,9 @@ export function Tabs({ mother, setMother, tab, totalCosts }: TabsProps) {
           </div>
         ))}
 
-        {mother.costs.length === 0 && <EmptyState text="هنوز هزینه‌ای ثبت نشده است." />}
+        {mother.costs.length === 0 && (
+          <EmptyState text="هنوز هزینه‌ای ثبت نشده است." />
+        )}
 
         <button
           type="button"
@@ -425,9 +570,10 @@ export function Tabs({ mother, setMother, tab, totalCosts }: TabsProps) {
             }
           />
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <Label text="نوع خدمت" />
+
               <SelectField
                 value={service.type}
                 onChange={v => updateService(service.id, { type: v })}
@@ -442,6 +588,10 @@ export function Tabs({ mother, setMother, tab, totalCosts }: TabsProps) {
                   'آزمایش',
                   'سونوگرافی',
                   'حمایت حقوقی',
+                  'بسته معیشتی',
+                  'لباس و پوشاک',
+                  'حمل‌ونقل',
+                  'ویزیت پزشک',
                   'سایر',
                 ]}
               />
@@ -453,7 +603,7 @@ export function Tabs({ mother, setMother, tab, totalCosts }: TabsProps) {
               onChange={v => updateService(service.id, { date: v })}
             />
 
-            <div className="col-span-2">
+            <div className="md:col-span-2">
               <TextAreaInput
                 label="توضیحات خدمت"
                 value={service.desc}
@@ -462,7 +612,7 @@ export function Tabs({ mother, setMother, tab, totalCosts }: TabsProps) {
               />
             </div>
 
-            <div className="col-span-2">
+            <div className="md:col-span-2">
               <ImageUploader
                 label="عکس خدمت"
                 value={service.photo}
@@ -473,7 +623,9 @@ export function Tabs({ mother, setMother, tab, totalCosts }: TabsProps) {
         </div>
       ))}
 
-      {mother.services.length === 0 && <EmptyState text="هنوز خدمتی ثبت نشده است." />}
+      {mother.services.length === 0 && (
+        <EmptyState text="هنوز خدمتی ثبت نشده است." />
+      )}
 
       <button
         type="button"
@@ -501,7 +653,23 @@ export function Tabs({ mother, setMother, tab, totalCosts }: TabsProps) {
 }
 
 function Label({ text }: { text: string }) {
-  return <label className="block text-sm text-muted-foreground mb-1">{text}</label>;
+  return (
+    <label className="block text-sm text-muted-foreground mb-1">
+      {text}
+    </label>
+  );
+}
+
+function ReadOnlyField({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <Label text={label} />
+
+      <div className="form-input bg-muted/40 text-primary font-bold" dir="rtl">
+        {value || '-'}
+      </div>
+    </div>
+  );
 }
 
 function TextInput({
@@ -518,8 +686,9 @@ function TextInput({
   return (
     <div>
       <Label text={label} />
+
       <input
-        value={value}
+        value={value || ''}
         onChange={e => onChange(e.target.value)}
         placeholder={placeholder}
         className="form-input"
@@ -542,8 +711,9 @@ function TextAreaInput({
   return (
     <div>
       <Label text={label} />
+
       <textarea
-        value={value}
+        value={value || ''}
         onChange={e => onChange(e.target.value)}
         rows={rows}
         className="form-input resize-none"
@@ -564,11 +734,12 @@ function SelectField({
   return (
     <div className="relative">
       <select
-        value={value}
+        value={value || ''}
         onChange={e => onChange(e.target.value)}
         className="form-input appearance-none pr-3 pl-8 cursor-pointer w-full"
       >
         <option value="">انتخاب کنید...</option>
+
         {options.map(option => (
           <option key={option} value={option}>
             {option}
@@ -596,6 +767,7 @@ function CardHeader({
       <h4 className="text-foreground" style={{ fontWeight: 600 }}>
         {title}
       </h4>
+
       <button
         onClick={onDelete}
         type="button"

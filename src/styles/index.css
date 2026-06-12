@@ -2,3 +2,52 @@
 @import './tailwind.css';
 @import './theme.css';
 @import './globals.css';
+
+@layer base {
+  :root {
+    /* --- Light Mode (مینیمال و تمیز) --- */
+    --background: 210 20% 98%; 
+    --foreground: 222 47% 11%;
+    
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+ 
+    --primary: 250 100% 65%; /* بنفش/آبی مدرن */
+    --primary-foreground: 0 0% 100%;
+
+    --muted: 210 20% 94%;
+    --muted-foreground: 215 16% 47%;
+    
+    --border: 214 32% 91%;
+    --radius: 1rem;
+  }
+
+  .dark {
+    /* --- Dark Mode (دقیقاً مشابه عکس رفرنس SaaS شما) --- */
+    --background: 230 19% 9%; /* پس زمینه کاملا تیره اما نه سیاه مطلق */
+    --foreground: 0 0% 100%;
+    
+    --card: 228 19% 13%; /* رنگ کارت‌ها کمی روشن‌تر از بک‌گراند */
+    --card-foreground: 0 0% 100%;
+ 
+    --primary: 250 100% 65%;
+    --primary-foreground: 0 0% 100%;
+
+    --muted: 228 19% 20%;
+    --muted-foreground: 228 15% 65%;
+    
+    --border: 228 19% 20%; /* خطوط مرزی محو و شیک */
+  }
+}
+
+@layer base {
+  * {
+    border-color: hsl(var(--border));
+  }
+  body {
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}

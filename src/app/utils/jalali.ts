@@ -32,6 +32,11 @@ export const jalaliMonths = [
   'مهر','آبان','آذر','دی','بهمن','اسفند'
 ];
 
+// تابع جدیدی که برای داشبورد اضافه شد تا عدد ماه را به اسم تبدیل کند
+export function getMonthName(month: number): string {
+  return jalaliMonths[month - 1] || '';
+}
+
 export function formatJalaliDisplay(dateStr: string): string {
   if (!dateStr) return '';
   const parts = dateStr.split('/');
@@ -41,6 +46,7 @@ export function formatJalaliDisplay(dateStr: string): string {
 }
 
 export function toPersianNumber(n: number | string): string {
+  if (n === undefined || n === null) return '';
   return String(n).replace(/\d/g, d => '۰۱۲۳۴۵۶۷۸۹'[+d]);
 }
 
