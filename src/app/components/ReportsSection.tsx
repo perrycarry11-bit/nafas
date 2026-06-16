@@ -425,7 +425,7 @@ export function ReportsSection({ onBack }: Props) {
           }
         }
       } catch {
-        // اگر آنلاین نبود یا نشست مشکل داشت، از پروفایل ذخیره‌شده استفاده می‌شود
+        // اگر برخط نبود یا نشست مشکل داشت، از پروفایل ذخیره‌شده استفاده می‌شود
       }
 
       currentProfile = currentProfile
@@ -638,9 +638,9 @@ export function ReportsSection({ onBack }: Props) {
       setMothersData(motherRows);
 
       if (nationalUser) {
-        setMessage('گزارش همه استان‌ها و شهرستان‌ها با سرور مرکزی به‌روزرسانی شد.');
+        setMessage('گزارش همه استان‌ها و شهرستان‌ها با سرور مرکزی تازه‌سازی شد.');
       } else if (provinceUser) {
-        setMessage(`گزارش استان ${currentProfile?.province_name || ''} به‌روزرسانی شد.`);
+        setMessage(`گزارش استان ${currentProfile?.province_name || ''} تازه‌سازی شد.`);
       } else {
         setMessage(`فقط گزارش شهرستان ${currentProfile?.county_name || ''} نمایش داده می‌شود.`);
       }
@@ -1112,7 +1112,7 @@ export function ReportsSection({ onBack }: Props) {
       return;
     }
 
-    alert('گزارش خیرین بعد از اصلاح بخش خیرین آنلاین می‌شود.');
+    alert('گزارش خیرین بعد از اصلاح بخش خیرین برخط می‌شود.');
   }
 
   const reportTabs: { key: ReportType; label: string }[] = [
@@ -1168,7 +1168,7 @@ export function ReportsSection({ onBack }: Props) {
               type="button"
             >
               <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
-              به‌روزرسانی
+              تازه‌سازی
             </button>
 
             <button
@@ -1792,7 +1792,7 @@ function ComingSoonReport() {
       <BarChart3 size={36} className="mx-auto text-primary mb-4" />
 
       <h3 className="text-foreground font-bold mb-2">
-        گزارش خیرین بعد از اصلاح بخش خیرین آنلاین می‌شود
+        گزارش خیرین بعد از اصلاح بخش خیرین برخط می‌شود
       </h3>
 
       <p className="text-sm text-muted-foreground leading-7">

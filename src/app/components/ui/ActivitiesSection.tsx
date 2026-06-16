@@ -865,7 +865,7 @@ export function ActivitiesSection({ onBack }: Props) {
         );
 
         setActivities(dedupeActivities(local));
-        setSyncMessage(error?.message || 'خطا در دریافت اطلاعات آنلاین');
+        setSyncMessage(error?.message || 'خطا در دریافت اطلاعات برخط');
       }
     }
 
@@ -1063,7 +1063,7 @@ export function ActivitiesSection({ onBack }: Props) {
         '';
 
       if (!countyId) {
-        alert('شهرستان کاربر مشخص نیست. یک بار خارج شوید و دوباره آنلاین وارد شوید.');
+        alert('شهرستان کاربر مشخص نیست. یک بار خارج شوید و دوباره برخط وارد شوید.');
         return;
       }
     }
@@ -1175,14 +1175,14 @@ export function ActivitiesSection({ onBack }: Props) {
         next = dedupeActivities(next);
 
         updateActivities(next);
-        setSyncMessage('فعالیت ذخیره و آنلاین شد.');
+        setSyncMessage('فعالیت ذخیره و برخط شد.');
       } catch (error: any) {
-        setSyncMessage(error?.message || 'فعالیت محلی ذخیره شد اما آنلاین نشد.');
+        setSyncMessage(error?.message || 'فعالیت محلی ذخیره شد اما برخط نشد.');
       } finally {
         setSyncing(false);
       }
     } else {
-      setSyncMessage('فعالیت روی سیستم ذخیره شد و بعد از اتصال اینترنت سینک می‌شود.');
+      setSyncMessage('فعالیت روی سیستم ذخیره شد و بعد از اتصال اینترنت همگام سازی می‌شود.');
     }
   }
 
@@ -1212,7 +1212,7 @@ export function ActivitiesSection({ onBack }: Props) {
     if (navigator.onLine) {
       await syncAndReload(next);
     } else {
-      setSyncMessage('حذف فعالیت روی سیستم ثبت شد و بعد از اتصال اینترنت سینک می‌شود.');
+      setSyncMessage('حذف فعالیت روی سیستم ثبت شد و بعد از اتصال اینترنت همگام سازی می‌شود.');
     }
   }
 
@@ -1283,8 +1283,8 @@ export function ActivitiesSection({ onBack }: Props) {
           >
             {isOnline ? <Wifi size={15} /> : <WifiOff size={15} />}
             {isOnline
-              ? 'آنلاین - اتصال به سرور مرکزی برقرار است'
-              : 'آفلاین - تغییرات بعداً سینک می‌شود'}
+              ? 'برخط - اتصال به سرور مرکزی برقرار است'
+              : 'برون خط (آفلاین) - تغییرات بعداً همگام سازی می‌شود'}
           </div>
 
           <div className="rounded-2xl border border-border bg-card px-4 py-3 text-xs text-muted-foreground">
@@ -1390,7 +1390,7 @@ export function ActivitiesSection({ onBack }: Props) {
             value={visibleActivities.filter(item => item.photos.length > 0).length}
           />
           <StatCard
-            title="در انتظار سینک"
+            title="در انتظار همگام سازی"
             value={activities.filter(item => item.syncStatus !== 'synced').length}
           />
         </div>
@@ -1424,7 +1424,7 @@ export function ActivitiesSection({ onBack }: Props) {
                     'تاریخ شمسی',
                     'مکان',
                     'تعداد عکس',
-                    'وضعیت سینک',
+                    'وضعیت همگام سازی',
                     'عملیات',
                   ].map(header => (
                     <th
@@ -1812,7 +1812,7 @@ function SyncBadge({ item }: { item: NafasActivity }) {
     return (
       <span className="inline-flex items-center gap-1 rounded-full bg-green-100 text-green-700 px-2 py-1 text-xs font-bold">
         <Cloud size={12} />
-        سینک‌شده
+        همگام سازی‌شده
       </span>
     );
   }
@@ -1832,7 +1832,7 @@ function SyncBadge({ item }: { item: NafasActivity }) {
   return (
     <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 text-amber-700 px-2 py-1 text-xs font-bold">
       <CloudOff size={12} />
-      در انتظار سینک
+      در انتظار همگام سازی
     </span>
   );
 }

@@ -863,7 +863,7 @@ export function DoctorsSection({ onBack }: Props) {
         );
 
         setDoctors(dedupeDoctors(local));
-        setSyncMessage(error?.message || 'خطا در دریافت اطلاعات آنلاین');
+        setSyncMessage(error?.message || 'خطا در دریافت اطلاعات برخط');
       }
     }
 
@@ -1077,7 +1077,7 @@ export function DoctorsSection({ onBack }: Props) {
         '';
 
       if (!countyId) {
-        alert('شهرستان کاربر مشخص نیست. یک بار خارج شوید و دوباره آنلاین وارد شوید.');
+        alert('شهرستان کاربر مشخص نیست. یک بار خارج شوید و دوباره برخط وارد شوید.');
         return;
       }
     }
@@ -1188,14 +1188,14 @@ export function DoctorsSection({ onBack }: Props) {
         next = dedupeDoctors(next);
 
         updateList(next);
-        setSyncMessage('پزشک ذخیره و آنلاین شد.');
+        setSyncMessage('پزشک ذخیره و برخط شد.');
       } catch (error: any) {
-        setSyncMessage(error?.message || 'پزشک محلی ذخیره شد اما آنلاین نشد.');
+        setSyncMessage(error?.message || 'پزشک محلی ذخیره شد اما برخط نشد.');
       } finally {
         setSyncing(false);
       }
     } else {
-      setSyncMessage('پزشک روی سیستم ذخیره شد و بعد از اتصال اینترنت سینک می‌شود.');
+      setSyncMessage('پزشک روی سیستم ذخیره شد و بعد از اتصال اینترنت همگام سازی می‌شود.');
     }
   }
 
@@ -1226,7 +1226,7 @@ export function DoctorsSection({ onBack }: Props) {
     if (navigator.onLine) {
       await syncAndReload(next);
     } else {
-      setSyncMessage('حذف پزشک روی سیستم ثبت شد و بعد از اتصال اینترنت سینک می‌شود.');
+      setSyncMessage('حذف پزشک روی سیستم ثبت شد و بعد از اتصال اینترنت همگام سازی می‌شود.');
     }
   }
 
@@ -1302,8 +1302,8 @@ export function DoctorsSection({ onBack }: Props) {
           >
             {isOnline ? <Wifi size={15} /> : <WifiOff size={15} />}
             {isOnline
-              ? 'آنلاین - اتصال به سرور مرکزی برقرار است'
-              : 'آفلاین - تغییرات بعداً سینک می‌شود'}
+              ? 'برخط - اتصال به سرور مرکزی برقرار است'
+              : 'برون خط (آفلاین) - تغییرات بعداً همگام سازی می‌شود'}
           </div>
 
           <div className="rounded-2xl border border-border bg-card px-4 py-3 text-xs text-muted-foreground">
@@ -1399,7 +1399,7 @@ export function DoctorsSection({ onBack }: Props) {
           <StatCard title="کل پزشکان" value={totalDoctors} icon={<Stethoscope size={20} />} />
           <StatCard title="تخصص‌ها" value={totalSpecialties} icon={<UserRound size={20} />} />
           <StatCard title="همکار ثابت" value={fixedCount} icon={<Building2 size={20} />} />
-          <StatCard title="در انتظار سینک" value={pendingCount} icon={<CloudOff size={20} />} />
+          <StatCard title="در انتظار همگام سازی" value={pendingCount} icon={<CloudOff size={20} />} />
         </div>
 
         <div className="relative mb-4">
@@ -1431,7 +1431,7 @@ export function DoctorsSection({ onBack }: Props) {
                     'شماره تماس',
                     'مرکز / کلینیک',
                     'نوع همکاری',
-                    'وضعیت سینک',
+                    'وضعیت همگام سازی',
                     'عملیات',
                   ].map(h => (
                     <th
@@ -1730,7 +1730,7 @@ function SyncBadge({ item }: { item: Doctor }) {
     return (
       <span className="inline-flex items-center gap-1 rounded-full bg-green-100 text-green-700 px-2 py-1 text-xs font-bold">
         <Cloud size={12} />
-        سینک‌شده
+        همگام سازی‌شده
       </span>
     );
   }
@@ -1750,7 +1750,7 @@ function SyncBadge({ item }: { item: Doctor }) {
   return (
     <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 text-amber-700 px-2 py-1 text-xs font-bold">
       <CloudOff size={12} />
-      در انتظار سینک
+      در انتظار همگام سازی
     </span>
   );
 }

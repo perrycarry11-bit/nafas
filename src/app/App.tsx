@@ -7,10 +7,18 @@ import {
   Loader2,
   ShieldCheck,
   HardDrive,
+  Building2,
+  MessagesSquare,
+  LibraryBig,
+  KeyRound,
+  ArrowRight,
 } from 'lucide-react';
 
 import { Dashboard } from './components/Dashboard';
+import { ProfileSection } from './components/ProfileSection';
+
 import { MothersSection } from './components/MothersSection';
+import { CalendarSection } from './components/CalendarSection';
 import { BenefactorsSection } from './components/BenefactorsSection';
 import { DoctorsSection } from './components/DoctorsSection';
 import { ReportsSection } from './components/ReportsSection';
@@ -20,6 +28,11 @@ import { SettingsSection } from './components/SettingsSection';
 import { CommandPalette } from './components/CommandPalette';
 import { ActivitiesSection } from './components/ui/ActivitiesSection.tsx';
 import { ReferralsSection } from './components/ReferralsSection';
+
+// Import کامپوننت‌های اصلی بخش‌های جدید
+import { CentersSection } from './components/CentersSection';
+import { InternalCommunicationsSection } from './components/InternalCommunicationsSection';
+import { CulturalResourcesSection } from './components/CulturalResourcesSection';
 
 import {
   signInOnline,
@@ -36,13 +49,18 @@ import logo from '../styles/logo.png';
 type Section =
   | 'dashboard'
   | 'mothers'
+  | 'calendar'
   | 'benefactors'
   | 'doctors'
   | 'reports'
   | 'sms'
   | 'settings'
   | 'activities'
-  | 'referrals';
+  | 'referrals'
+  | 'centers'
+  | 'communications'
+  | 'cultural'
+  | 'profile';
 
 type Stats = {
   mothers: number;
@@ -52,11 +70,15 @@ type Stats = {
   children: number;
 };
 
+type LegacyRole = 'admin' | 'staff';
+
+type ManagementLevel = 'country' | 'province' | 'county';
+
 interface AppUser {
   id: string;
   name: string;
   username: string;
-  role: 'admin' | 'staff';
+  role: LegacyRole;
   access: string[];
 }
 
@@ -84,8 +106,10 @@ function clearCurrentLoginData() {
     localStorage.removeItem('nafas_current_county_name');
     localStorage.removeItem('nafas_current_county_code');
     localStorage.removeItem('nafas_current_online_role');
+    localStorage.removeItem('nafas_current_management_level');
+    localStorage.removeItem('nafas_is_management_view');
 
-    // این دو مورد برای ورود آفلاین لازم‌اند، پس پاک نمی‌شوند:
+    // این دو مورد برای ورود برون خط (آفلاین) لازم‌اند، پس پاک نمی‌شوند:
     // nafas_offline_auth_users_v1
     // nafas_last_offline_username
   } catch {
@@ -147,22 +171,79 @@ function isValidSection(value: string | null): value is Section {
   return (
     value === 'dashboard' ||
     value === 'mothers' ||
+    value === 'calendar' ||
     value === 'benefactors' ||
     value === 'doctors' ||
     value === 'reports' ||
     value === 'sms' ||
     value === 'settings' ||
     value === 'activities' ||
-    value === 'referrals'
+    value === 'referrals' ||
+    value === 'centers' ||
+    value === 'communications' ||
+    value === 'cultural' ||
+    value === 'profile'
   );
 }
 
+function normalizeOnlineRole(role: string | undefined | null) {
+  return String(role || '').trim().toLowerCase();
+}
+
+function getManagementLevel(profile: OnlineProfile | null): ManagementLevel {
+  if (!profile) return 'county';
+
+  const role = normalizeOnlineRole(profile.role);
+  const countyId = (profile as any).county_id || '';
+
+  if (
+    role === 'country_admin' ||
+    role === 'national_admin' ||
+    role === 'super_admin' ||
+    role === 'main_admin' ||
+    role === 'central_admin'
+  ) {
+    return 'country';
+  }
+
+  if (
+    role === 'province_admin' ||
+    role === 'province_manager' ||
+    role === 'admin'
+  ) {
+    return 'province';
+  }
+
+  if (
+    role === 'county_user' ||
+    role === 'county_staff' ||
+    role === 'province_staff' ||
+    role === 'staff'
+  ) {
+    return 'county';
+  }
+
+  if (countyId) {
+    return 'county';
+  }
+
+  return 'province';
+}
+
+function getManagementLevelLabel(level: ManagementLevel) {
+  if (level === 'country') return 'مدیریت کشوری';
+  if (level === 'province') return 'مدیریت استان';
+  return 'کاربر شهرستان / مرکز';
+}
+
 function mapOnlineProfileToLegacyUser(profile: OnlineProfile): {
-  role: 'admin' | 'staff';
+  role: LegacyRole;
   user: AppUser;
 } {
-  const legacyRole: 'admin' | 'staff' =
-    profile.role === 'province_staff' ? 'staff' : 'admin';
+  const managementLevel = getManagementLevel(profile);
+
+  const legacyRole: LegacyRole =
+    managementLevel === 'county' ? 'staff' : 'admin';
 
   return {
     role: legacyRole,
@@ -180,6 +261,7 @@ function persistProfileScope(profile: OnlineProfile) {
   const countyId = (profile as any).county_id || '';
   const countyName = (profile as any).county_name || '';
   const countyCode = (profile as any).county_code || '';
+  const managementLevel = getManagementLevel(profile);
 
   localStorage.setItem('nafas_online_profile', JSON.stringify(profile));
 
@@ -191,6 +273,11 @@ function persistProfileScope(profile: OnlineProfile) {
   localStorage.setItem('nafas_current_county_name', countyName);
   localStorage.setItem('nafas_current_county_code', countyCode);
   localStorage.setItem('nafas_current_online_role', profile.role || '');
+  localStorage.setItem('nafas_current_management_level', managementLevel);
+  localStorage.setItem(
+    'nafas_is_management_view',
+    managementLevel === 'county' ? 'false' : 'true',
+  );
   localStorage.setItem('nafas_auth_mode', 'online');
 }
 
@@ -316,13 +403,13 @@ function LoginPage({
             {isOnline ? <Wifi size={15} /> : <WifiOff size={15} />}
 
             {isOnline
-              ? 'آنلاین هستید - ورود با سرور مرکزی انجام می‌شود'
-              : 'آفلاین هستید - ورود با حساب ذخیره‌شده روی این سیستم انجام می‌شود'}
+              ? 'برخط هستید - ورود با سرور مرکزی انجام می‌شود'
+              : 'برون خط (آفلاین) هستید - ورود با حساب ذخیره‌شده روی این سیستم انجام می‌شود'}
           </div>
 
           {!isOnline && (
             <div className="mb-5 rounded-2xl border border-amber-200 bg-amber-50 text-amber-700 p-4 text-xs leading-7">
-              برای ورود آفلاین، این کاربر باید قبلاً حداقل یک بار با اینترنت روی همین سیستم وارد شده باشد.
+              برای ورود برون خط (آفلاین)، این کاربر باید قبلاً حداقل یک بار با اینترنت روی همین سیستم وارد شده باشد.
             </div>
           )}
 
@@ -396,12 +483,12 @@ function LoginPage({
               ) : isOnline ? (
                 <>
                   <ShieldCheck size={17} />
-                  ورود آنلاین
+                  ورود برخط
                 </>
               ) : (
                 <>
                   <HardDrive size={17} />
-                  ورود آفلاین
+                  ورود برون خط (آفلاین)
                 </>
               )}
             </button>
@@ -434,6 +521,240 @@ function LoginPage({
   );
 }
 
+// حفظ Placeholderها مطابق با دستور کاربر مبنی بر عدم حذف کدها
+function PlaceholderSection({
+  title,
+  subtitle,
+  icon,
+  onBack,
+  children,
+}: {
+  title: string;
+  subtitle: string;
+  icon: React.ReactNode;
+  onBack: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="min-h-screen px-4 md:px-8 py-6" dir="rtl">
+      <div className="max-w-6xl mx-auto">
+        <div className="flex items-center justify-between gap-4 mb-6">
+          <div>
+            <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 text-primary px-3 py-1 text-xs font-extrabold mb-3">
+              {icon}
+              بخش جدید سامانه نفس
+            </div>
+
+            <h1 className="text-2xl md:text-3xl font-black text-foreground">
+              {title}
+            </h1>
+
+            <p className="text-sm text-muted-foreground leading-7 mt-2">
+              {subtitle}
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={onBack}
+            className="btn-secondary shrink-0"
+          >
+            <ArrowRight size={17} />
+            بازگشت
+          </button>
+        </div>
+
+        <div className="rounded-[2rem] border border-border bg-white/85 dark:bg-card/85 backdrop-blur-xl shadow-2xl p-5 md:p-7">
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CentersPlaceholder({
+  onBack,
+  managementLevel,
+}: {
+  onBack: () => void;
+  managementLevel: ManagementLevel;
+}) {
+  return (
+    <PlaceholderSection
+      title="مدیریت مراکز نفس"
+      subtitle="این بخش برای مشاهده، پایش و مدیریت استان‌ها، شهرستان‌ها و مراکز نفس استفاده می‌شود."
+      icon={<Building2 size={15} />}
+      onBack={onBack}
+    >
+      <div className="space-y-4 text-sm leading-8 text-muted-foreground">
+        <p>
+          سطح دسترسی فعلی شما:{' '}
+          <span className="font-extrabold text-primary">
+            {getManagementLevelLabel(managementLevel)}
+          </span>
+        </p>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="rounded-2xl border border-border bg-muted/40 p-4">
+            <h3 className="font-black text-foreground mb-2">
+              مدیر کشور
+            </h3>
+            <p>
+              مشاهده همه استان‌ها، تعداد مراکز هر استان، ریز گزارش‌ها و مدیریت کاربران استانی.
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-border bg-muted/40 p-4">
+            <h3 className="font-black text-foreground mb-2">
+              مدیر استان
+            </h3>
+            <p>
+              مشاهده شهرستان‌ها و مراکز استان خودش، ساخت کاربر شهرستان و بررسی ریز اطلاعات ثبت‌شده.
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-border bg-muted/40 p-4">
+            <h3 className="font-black text-foreground mb-2">
+              کاربر شهرستان
+            </h3>
+            <p>
+              مشاهده و ثبت اطلاعات فقط در محدوده شهرستان یا مرکز خودش.
+            </p>
+          </div>
+        </div>
+
+        <p className="text-xs text-muted-foreground">
+          در قدم بعدی، کامپوننت اختصاصی این بخش و جدول‌های Supabase مربوط به مراکز را اضافه می‌کنیم.
+        </p>
+      </div>
+    </PlaceholderSection>
+  );
+}
+
+function CommunicationsPlaceholder({
+  onBack,
+  managementLevel,
+}: {
+  onBack: () => void;
+  managementLevel: ManagementLevel;
+}) {
+  return (
+    <PlaceholderSection
+      title="ارتباطات داخلی"
+      subtitle="پیام‌رسانی داخلی بین کشور، استان و شهرستان‌ها طبق سطح دسترسی."
+      icon={<MessagesSquare size={15} />}
+      onBack={onBack}
+    >
+      <div className="space-y-4 text-sm leading-8 text-muted-foreground">
+        <p>
+          سطح دسترسی فعلی شما:{' '}
+          <span className="font-extrabold text-primary">
+            {getManagementLevelLabel(managementLevel)}
+          </span>
+        </p>
+
+        <div className="rounded-2xl border border-border bg-muted/40 p-4">
+          <h3 className="font-black text-foreground mb-2">
+            قوانین پیام‌رسانی
+          </h3>
+
+          <ul className="list-disc pr-5 space-y-2">
+            <li>کشور می‌تواند به همه استان‌ها، شهرستان‌ها یا کل کشور پیام بدهد.</li>
+            <li>استان می‌تواند به کشور و شهرستان‌های خودش پیام بدهد.</li>
+            <li>شهرستان فقط می‌تواند به استان خودش پیام بدهد.</li>
+            <li>شهرستان امکان پیام مستقیم به کشور ندارد.</li>
+          </ul>
+        </div>
+
+        <p className="text-xs text-muted-foreground">
+          در قدم بعدی جدول‌های internal_messages و internal_message_reads را اضافه می‌کنیم.
+        </p>
+      </div>
+    </PlaceholderSection>
+  );
+}
+
+function CulturalPlaceholder({
+  onBack,
+}: {
+  onBack: () => void;
+}) {
+  return (
+    <PlaceholderSection
+      title="بانک محتوای فرهنگی"
+      subtitle="محل نگهداری بخش‌نامه‌ها، آموزش‌ها، پوسترها، موشن‌کلیپ‌ها، موسیقی و موارد قانونی."
+      icon={<LibraryBig size={15} />}
+      onBack={onBack}
+    >
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm leading-8 text-muted-foreground">
+        {[
+          'بخش‌نامه‌ها',
+          'آموزشی',
+          'پوستر',
+          'موشن‌کلیپ',
+          'موسیقی',
+          'موارد قانونی',
+          'قانون جوانی جمعیت',
+        ].map(item => (
+          <div
+            key={item}
+            className="rounded-2xl border border-border bg-muted/40 p-4"
+          >
+            <h3 className="font-black text-foreground mb-2">
+              {item}
+            </h3>
+            <p>
+              این دسته در قدم بعدی به فایل، توضیح، سطح نمایش و وضعیت فعال/غیرفعال متصل می‌شود.
+            </p>
+          </div>
+        ))}
+      </div>
+    </PlaceholderSection>
+  );
+}
+
+function ProfilePlaceholder({
+  onBack,
+  managementLevel,
+}: {
+  onBack: () => void;
+  managementLevel: ManagementLevel;
+}) {
+  return (
+    <PlaceholderSection
+      title="حساب کاربری و تغییر رمز"
+      subtitle="تغییر نام کاربری و رمز عبور توسط خود کاربر و مدیر بالادستی."
+      icon={<KeyRound size={15} />}
+      onBack={onBack}
+    >
+      <div className="space-y-4 text-sm leading-8 text-muted-foreground">
+        <p>
+          سطح دسترسی فعلی شما:{' '}
+          <span className="font-extrabold text-primary">
+            {getManagementLevelLabel(managementLevel)}
+          </span>
+        </p>
+
+        <div className="rounded-2xl border border-border bg-muted/40 p-4">
+          <h3 className="font-black text-foreground mb-2">
+            منطق تغییر رمز
+          </h3>
+
+          <ul className="list-disc pr-5 space-y-2">
+            <li>هر کاربر بتواند نام کاربری و رمز خودش را تغییر دهد.</li>
+            <li>مدیر استان بتواند نام کاربری و رمز شهرستان‌های خودش را تغییر دهد.</li>
+            <li>مدیر کشور بتواند نام کاربری و رمز مدیران استان را تغییر دهد.</li>
+          </ul>
+        </div>
+
+        <p className="text-xs text-muted-foreground">
+          این قابلیت نیاز به Edge Function جدید با نام update-nafas-user دارد تا رمز عبور به صورت امن در Supabase Auth تغییر کند.
+        </p>
+      </div>
+    </PlaceholderSection>
+  );
+}
+
 export default function App() {
   const [ready, setReady] = useState(false);
   const [onlineProfile, setOnlineProfile] = useState<OnlineProfile | null>(null);
@@ -447,8 +768,11 @@ export default function App() {
   const [fontSize, setFontSize] = useState(15);
   const [stats, setStats] = useState<Stats>(getStats());
 
-  const [currentRole, setCurrentRole] = useState<'admin' | 'staff'>('admin');
+  const [currentRole, setCurrentRole] = useState<LegacyRole>('admin');
   const [activeUser, setActiveUser] = useState<AppUser | null>(null);
+
+  const [managementLevel, setManagementLevel] =
+    useState<ManagementLevel>('county');
 
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isNotiOpen, setIsNotiOpen] = useState(false);
@@ -459,12 +783,13 @@ export default function App() {
     setOnlineProfile(null);
     setActiveUser(null);
     setCurrentRole('admin');
+    setManagementLevel('county');
 
     setReady(true);
   }, []);
 
   useEffect(() => {
-    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+    const handleGlobalKeyDown = (e: globalThis.KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
         e.preventDefault();
         setIsSearchOpen(prev => !prev);
@@ -502,13 +827,20 @@ export default function App() {
 
   function applyOnlineProfile(profile: OnlineProfile) {
     const mapped = mapOnlineProfileToLegacyUser(profile);
+    const nextManagementLevel = getManagementLevel(profile);
 
     setOnlineProfile(profile);
     setCurrentRole(mapped.role);
     setActiveUser(mapped.user);
+    setManagementLevel(nextManagementLevel);
 
     localStorage.setItem('nafas_current_role', mapped.role);
     localStorage.setItem('nafas_active_user', JSON.stringify(mapped.user));
+    localStorage.setItem('nafas_current_management_level', nextManagementLevel);
+    localStorage.setItem(
+      'nafas_is_management_view',
+      nextManagementLevel === 'county' ? 'false' : 'true',
+    );
 
     persistProfileScope(profile);
   }
@@ -523,10 +855,22 @@ export default function App() {
   }
 
   function navigate(sectionName: string) {
+    // افزودن تقویم و مراکز به لیست بخش‌های مجاز کارمندان
+    const alwaysAllowedForStaff = [
+      'dashboard',
+      'settings',
+      'referrals',
+      'communications',
+      'cultural',
+      'profile',
+      'centers',
+      'calendar'
+    ];
+
     if (
       currentRole === 'staff' &&
       activeUser &&
-      !['dashboard', 'settings', 'referrals'].includes(sectionName)
+      !alwaysAllowedForStaff.includes(sectionName)
     ) {
       if (!activeUser.access.includes(sectionName)) {
         alert('حساب کاربری شما دسترسی لازم برای ورود به این بخش را ندارد.');
@@ -581,7 +925,7 @@ export default function App() {
             currentRole={currentRole}
             activeUser={activeUser}
             onSwitchToAdmin={() => {
-              alert('در نسخه آنلاین، تغییر نقش فقط از طریق حساب کاربری آنلاین انجام می‌شود.');
+              alert('در نسخه برخط، تغییر نقش فقط از طریق حساب کاربری برخط انجام می‌شود.');
             }}
             onOpenSearch={() => setIsSearchOpen(true)}
             onOpenNotifications={() => setIsNotiOpen(true)}
@@ -589,6 +933,7 @@ export default function App() {
         )}
 
         {section === 'mothers' && <MothersSection onBack={goDashboard} />}
+        {section === 'calendar' && <CalendarSection onBack={goDashboard} />}
         {section === 'benefactors' && <BenefactorsSection onBack={goDashboard} />}
         {section === 'doctors' && <DoctorsSection onBack={goDashboard} />}
         {section === 'reports' && <ReportsSection onBack={goDashboard} />}
@@ -603,6 +948,20 @@ export default function App() {
 
         {section === 'referrals' && <ReferralsSection onBack={goDashboard} />}
 
+        {section === 'centers' && (
+          <CentersSection onBack={goDashboard} />
+        )}
+
+        {section === 'communications' && (
+          <InternalCommunicationsSection onBack={goDashboard} />
+        )}
+
+        {section === 'cultural' && (
+          <CulturalResourcesSection onBack={goDashboard} />
+        )}
+
+        {section === 'profile' && <ProfileSection onBack={goDashboard} />}
+
         {section === 'settings' && (
           <SettingsSection
             onBack={goDashboard}
@@ -612,8 +971,8 @@ export default function App() {
             setFontSize={setFontSize}
             currentRole={currentRole}
             activeUser={activeUser}
-            onUserSwitched={(role: 'admin' | 'staff', user: AppUser | null) => {
-              alert('در نسخه آنلاین، تغییر نقش محلی غیرفعال است. برای تغییر کاربر باید از صفحه ورود استفاده شود.');
+            onUserSwitched={(role: LegacyRole, user: AppUser | null) => {
+              alert('در نسخه برخط، تغییر نقش محلی غیرفعال است. برای تغییر کاربر باید از صفحه ورود استفاده شود.');
 
               setCurrentRole(role);
               setActiveUser(user);

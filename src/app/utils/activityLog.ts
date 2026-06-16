@@ -84,7 +84,7 @@ function getCurrentUserInfo(): {
         userName:
           onlineProfile?.full_name ||
           onlineProfile?.username ||
-          'کاربر آنلاین',
+          'کاربر برخط',
         username: onlineProfile?.username || 'online',
         role:
           onlineRole === 'province_staff'

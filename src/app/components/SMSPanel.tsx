@@ -316,7 +316,7 @@ function buildLocalSuggestion(aiPurpose: string, aiTone: string, aiDetails: stri
 function getAISourceBox(aiSource: AISource) {
   if (aiSource === 'online') {
     return {
-      label: 'متن آنلاین با ChatGPT ساخته شد',
+      label: 'متن برخط با ChatGPT ساخته شد',
       icon: Wifi,
       className: 'bg-green-100 text-green-700 border-green-200',
     };
@@ -324,7 +324,7 @@ function getAISourceBox(aiSource: AISource) {
 
   if (aiSource === 'offline') {
     return {
-      label: 'متن آفلاین پیشنهادی ساخته شد',
+      label: 'متن برون خط (آفلاین) پیشنهادی ساخته شد',
       icon: WifiOff,
       className: 'bg-amber-100 text-amber-700 border-amber-200',
     };
@@ -990,7 +990,7 @@ export function SMSPanel({ onBack }: Props) {
 
       if (error) throw error;
     } catch {
-      // اگر آنلاین ثبت نشد، حداقل در حافظه محلی ذخیره می‌شود
+      // اگر برخط ثبت نشد، حداقل در حافظه محلی ذخیره می‌شود
     }
 
     const newSMS: SMSHistory = {
@@ -1233,7 +1233,7 @@ export function SMSPanel({ onBack }: Props) {
       setAiSource('online');
     } catch (error) {
       console.error(error);
-      setAiError('اتصال به ChatGPT انجام نشد؛ متن پیشنهادی آفلاین ساخته شد.');
+      setAiError('اتصال به ChatGPT انجام نشد؛ متن پیشنهادی برون خط (آفلاین) ساخته شد.');
       setAiResult(localSuggestion);
       setAiSource('offline');
     } finally {
@@ -1334,7 +1334,7 @@ export function SMSPanel({ onBack }: Props) {
             className="rounded-2xl border border-border bg-card px-4 py-3 text-xs text-foreground font-bold flex items-center gap-2 justify-center"
           >
             <RefreshCw size={14} className={contactsLoading ? 'animate-spin' : ''} />
-            به‌روزرسانی گیرندگان
+            تازه‌سازی گیرندگان
           </button>
         </div>
 

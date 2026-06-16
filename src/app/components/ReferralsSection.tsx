@@ -34,12 +34,11 @@ import nafasLogo from '../../styles/logo.png';
 
 /*
   کلید ChatGPT خودت را اینجا قرار بده.
-  مثال:
-  const DEFAULT_OPENAI_API_KEY = 'sk-proj-xxxxxxxxxxxxxxxxxxxxxxxx';
 */
 const DEFAULT_OPENAI_API_KEY = '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';
 
-const DEFAULT_OPENAI_MODEL = 'gpt-5.4-mini';
+// اصلاح شد: مدل صحیح gpt-4o-mini است
+const DEFAULT_OPENAI_MODEL = 'gpt-4o-mini';
 
 type SyncStatus = 'synced' | 'pending' | 'pending_delete' | 'error';
 
@@ -1227,7 +1226,7 @@ export function ReferralsSection({ onBack }: Props) {
         );
 
         setReferrals(dedupeReferrals(local));
-        setSyncMessage(error?.message || 'خطا در دریافت اطلاعات آنلاین');
+        setSyncMessage(error?.message || 'خطا در دریافت اطلاعات برخط');
       }
     }
 
@@ -1559,7 +1558,7 @@ export function ReferralsSection({ onBack }: Props) {
         '';
 
       if (!countyId) {
-        alert('شهرستان کاربر مشخص نیست. یک بار خارج شوید و دوباره آنلاین وارد شوید.');
+        alert('شهرستان کاربر مشخص نیست. یک بار خارج شوید و دوباره برخط وارد شوید.');
         return;
       }
     }
@@ -1677,14 +1676,14 @@ export function ReferralsSection({ onBack }: Props) {
         next = dedupeReferrals(next);
 
         updateList(next);
-        setSyncMessage('معرفی‌نامه ذخیره و آنلاین شد.');
+        setSyncMessage('معرفی‌نامه ذخیره و برخط شد.');
       } catch (error: any) {
-        setSyncMessage(error?.message || 'معرفی‌نامه محلی ذخیره شد اما آنلاین نشد.');
+        setSyncMessage(error?.message || 'معرفی‌نامه محلی ذخیره شد اما برخط نشد.');
       } finally {
         setSyncing(false);
       }
     } else {
-      setSyncMessage('معرفی‌نامه روی سیستم ذخیره شد و بعد از اتصال اینترنت سینک می‌شود.');
+      setSyncMessage('معرفی‌نامه روی سیستم ذخیره شد و بعد از اتصال اینترنت همگام سازی می‌شود.');
     }
   }
 
@@ -1715,7 +1714,7 @@ export function ReferralsSection({ onBack }: Props) {
     if (navigator.onLine) {
       await syncAndReload(next);
     } else {
-      setSyncMessage('حذف معرفی‌نامه روی سیستم ثبت شد و بعد از اتصال اینترنت سینک می‌شود.');
+      setSyncMessage('حذف معرفی‌نامه روی سیستم ثبت شد و بعد از اتصال اینترنت همگام سازی می‌شود.');
     }
   }
 
@@ -1793,6 +1792,7 @@ export function ReferralsSection({ onBack }: Props) {
     setTimeout(() => setAiSettingsSaved(false), 2000);
   }
 
+  // --- اصلاح بزرگ در بخش دریافت متن از ChatGPT ---
   async function generateReferralAIText() {
     if (!editing) return;
 
@@ -1808,8 +1808,7 @@ export function ReferralsSection({ onBack }: Props) {
       return;
     }
 
-    const prompt = `
-یک متن معرفی‌نامه رسمی فارسی برای مرکز مردمی نفس بنویس.
+    const prompt = `یک متن معرفی‌نامه رسمی فارسی برای مرکز مردمی نفس بنویس.
 
 اطلاعات فرم:
 نام مادر: ${editing.motherName || 'نامشخص'}
@@ -1839,19 +1838,31 @@ ${aiTone}
 - فقط متن نهایی بدنه معرفی‌نامه را بده.
 `;
 
+    // تغییر اصلاحی مهم: جلوگیری از ارسال نام مدل اشتباه که قبلا ذخیره شده
+    const currentModel = aiModel === 'gpt-5.4-mini' ? 'gpt-4o-mini' : (aiModel || 'gpt-4o-mini');
+
     try {
-      const response = await fetch('https://api.openai.com/v1/responses', {
+      // آدرس اصلاح شده و استاندارد OpenAI
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${openaiApiKey}`,
         },
+        // ساختار Payload استاندارد برای OpenAI
         body: JSON.stringify({
-          model: aiModel || DEFAULT_OPENAI_MODEL,
-          instructions:
-            'تو دستیار فارسی برای نگارش معرفی‌نامه‌های رسمی، اداری، انسانی و مناسب چاپ برای مرکز حمایتی مادران هستی.',
-          input: prompt,
-          max_output_tokens: 650,
+          model: currentModel,
+          messages: [
+            {
+              role: "system",
+              content: "تو دستیار فارسی برای نگارش معرفی‌نامه‌های رسمی، اداری، انسانی و مناسب چاپ برای مرکز حمایتی مادران هستی."
+            },
+            {
+              role: "user",
+              content: prompt
+            }
+          ],
+          max_tokens: 650,
         }),
       });
 
@@ -1861,23 +1872,17 @@ ${aiTone}
         throw new Error(data?.error?.message || 'خطا در پاسخ ChatGPT');
       }
 
-      const outputText =
-        data?.output_text ||
-        data?.output
-          ?.flatMap((item: any) => item.content || [])
-          ?.map((content: any) => content.text || '')
-          ?.join('')
-          ?.trim() ||
-        '';
+      // نحوه صحیح خواندن متن از ریسپانس OpenAI
+      const outputText = data?.choices?.[0]?.message?.content?.trim() || '';
 
       if (!outputText) {
         throw new Error('متنی از ChatGPT دریافت نشد.');
       }
 
-      setAiResult(outputText.trim());
+      setAiResult(outputText);
     } catch (error: any) {
       console.error(error);
-      setAiError(error?.message || 'اتصال به ChatGPT انجام نشد؛ متن پیشنهادی آفلاین ساخته شد.');
+      setAiError(error?.message || 'اتصال به ChatGPT انجام نشد؛ متن پیشنهادی برون خط (آفلاین) ساخته شد.');
       setAiResult(localText);
     } finally {
       setAiLoading(false);
@@ -2027,8 +2032,8 @@ ${aiTone}
           >
             {isOnline ? <Wifi size={15} /> : <WifiOff size={15} />}
             {isOnline
-              ? 'آنلاین - اتصال به سرور مرکزی برقرار است'
-              : 'آفلاین - تغییرات بعداً سینک می‌شود'}
+              ? 'برخط - اتصال به سرور مرکزی برقرار است'
+              : 'برون خط (آفلاین) - تغییرات بعداً همگام سازی می‌شود'}
           </div>
 
           <div className="rounded-2xl border border-border bg-card px-4 py-3 text-xs text-muted-foreground">
@@ -2124,7 +2129,7 @@ ${aiTone}
           <StatCard title="کل معرفی‌نامه‌ها" value={visibleReferrals.length} icon={<FileText size={20} />} />
           <StatCard title="صادر شده" value={issuedCount} icon={<CheckCircle2 size={20} />} />
           <StatCard title="انجام شده" value={doneCount} icon={<UserRound size={20} />} />
-          <StatCard title="در انتظار سینک" value={pendingCount} icon={<CloudOff size={20} />} />
+          <StatCard title="در انتظار همگام سازی" value={pendingCount} icon={<CloudOff size={20} />} />
         </div>
 
         <div className="relative mb-4">
@@ -2156,7 +2161,7 @@ ${aiTone}
                     'موضوع',
                     'تاریخ صدور',
                     'وضعیت',
-                    'سینک',
+                    'همگام سازی',
                     'عملیات',
                   ].map(h => (
                     <th
@@ -2811,7 +2816,7 @@ function ReferralAIBox({
             value={aiModel}
             onChange={e => setAiModel(e.target.value)}
             className="form-input text-xs"
-            placeholder="gpt-4.1-mini"
+            placeholder="gpt-4o-mini"
           />
         </div>
       </div>
@@ -2904,7 +2909,7 @@ function SyncBadge({ item }: { item: Referral }) {
     return (
       <span className="inline-flex items-center gap-1 rounded-full bg-green-100 text-green-700 px-2 py-1 text-xs font-bold">
         <Cloud size={12} />
-        سینک‌شده
+        همگام سازی‌شده
       </span>
     );
   }
@@ -2924,7 +2929,7 @@ function SyncBadge({ item }: { item: Referral }) {
   return (
     <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 text-amber-700 px-2 py-1 text-xs font-bold">
       <CloudOff size={12} />
-      در انتظار سینک
+      در انتظار همگام سازی
     </span>
   );
 }

@@ -114,7 +114,7 @@ export function OnlineLogin(props: Props) {
     }
 
     if (!isOnline) {
-      setError('برای ورود آنلاین، اتصال اینترنت لازم است.');
+      setError('برای ورود برخط، اتصال اینترنت لازم است.');
       return;
     }
 

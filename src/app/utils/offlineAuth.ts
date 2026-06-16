@@ -160,14 +160,14 @@ export async function signInOffline(username: string, password: string) {
 
   if (!record) {
     throw new Error(
-      'این حساب هنوز برای ورود آفلاین روی این سیستم فعال نشده است. لطفاً یک‌بار با اینترنت وارد شوید.',
+      'این حساب هنوز برای ورود برون خط (آفلاین) روی این سیستم فعال نشده است. لطفاً یک‌بار با اینترنت وارد شوید.',
     );
   }
 
   const passwordHash = await hashPassword(normalizedUsername, password);
 
   if (passwordHash !== record.passwordHash) {
-    throw new Error('نام کاربری یا رمز عبور آفلاین اشتباه است.');
+    throw new Error('نام کاربری یا رمز عبور برون خط (آفلاین) اشتباه است.');
   }
 
   if (!record.profile?.is_active) {

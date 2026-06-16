@@ -1055,7 +1055,7 @@ export function MothersSection({ onBack }: Props) {
             next[i] = {
               ...next[i],
               syncStatus: 'error',
-              syncError: error?.message || 'خطا در سینک',
+              syncError: error?.message || 'خطا در همگام سازی',
             };
           }
         }
@@ -1235,7 +1235,7 @@ export function MothersSection({ onBack }: Props) {
     }
 
     if (!provinceId) {
-      alert('استان کاربر مشخص نیست. یک بار خارج شوید و دوباره آنلاین وارد شوید.');
+      alert('استان کاربر مشخص نیست. یک بار خارج شوید و دوباره برخط وارد شوید.');
       return;
     }
 
@@ -1428,14 +1428,14 @@ export function MothersSection({ onBack }: Props) {
 
         updateMothers(next);
 
-        setSyncMessage('پرونده مادر ذخیره و آنلاین شد.');
+        setSyncMessage('پرونده مادر ذخیره و برخط شد.');
       } catch (error: any) {
-        setSyncMessage(error?.message || 'پرونده محلی ذخیره شد اما آنلاین نشد.');
+        setSyncMessage(error?.message || 'پرونده محلی ذخیره شد اما برخط نشد.');
       } finally {
         setSyncing(false);
       }
     } else {
-      setSyncMessage('پرونده روی سیستم ذخیره شد و بعد از اتصال اینترنت سینک می‌شود.');
+      setSyncMessage('پرونده روی سیستم ذخیره شد و بعد از اتصال اینترنت همگام سازی می‌شود.');
     }
   };
 
@@ -1468,7 +1468,7 @@ export function MothersSection({ onBack }: Props) {
     if (navigator.onLine) {
       await syncAndReload(next);
     } else {
-      setSyncMessage('حذف روی سیستم ثبت شد و بعد از اتصال اینترنت سینک می‌شود.');
+      setSyncMessage('حذف روی سیستم ثبت شد و بعد از اتصال اینترنت همگام سازی می‌شود.');
     }
   };
 
@@ -1529,8 +1529,8 @@ export function MothersSection({ onBack }: Props) {
             >
               {isOnline ? <Wifi size={15} /> : <WifiOff size={15} />}
               {isOnline
-                ? 'آنلاین - اتصال به سرور مرکزی برقرار است'
-                : 'آفلاین - اطلاعات بعداً سینک می‌شود'}
+                ? 'برخط - اتصال به سرور مرکزی برقرار است'
+                : 'برون خط (آفلاین) - اطلاعات بعداً همگام سازی می‌شود'}
             </div>
 
             <div className="rounded-2xl border border-border bg-card px-4 py-3 text-xs text-muted-foreground">
@@ -1647,7 +1647,7 @@ export function MothersSection({ onBack }: Props) {
             />
 
             <StatCard
-              title="در انتظار سینک"
+              title="در انتظار همگام سازی"
               value={mothers.filter(m => m.syncStatus !== 'synced').length}
               icon={<CloudOff size={20} />}
             />
@@ -1684,7 +1684,7 @@ export function MothersSection({ onBack }: Props) {
                       'فرزندان',
                       'هزینه‌ها',
                       'خدمات',
-                      'سینک',
+                      'همگام سازی',
                       'عملیات',
                     ].map(h => (
                       <th
@@ -1937,7 +1937,7 @@ function SyncBadge({ mother }: { mother: Mother }) {
     return (
       <span className="inline-flex items-center gap-1 rounded-full bg-green-100 text-green-700 px-2 py-1 text-xs font-bold">
         <Cloud size={12} />
-        سینک‌شده
+        همگام سازی‌شده
       </span>
     );
   }
@@ -1957,7 +1957,7 @@ function SyncBadge({ mother }: { mother: Mother }) {
   return (
     <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 text-amber-700 px-2 py-1 text-xs font-bold">
       <CloudOff size={12} />
-      در انتظار سینک
+      در انتظار همگام سازی
     </span>
   );
 }

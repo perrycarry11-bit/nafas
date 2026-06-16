@@ -28,6 +28,8 @@ import {
   EyeOff,
   CheckCircle2,
   AlertCircle,
+  Save,
+  Pencil,
 } from 'lucide-react';
 
 import {
@@ -54,11 +56,13 @@ interface OnlineProfile {
   id: string;
   full_name: string;
   username: string;
-  role: 'national_admin' | 'province_admin' | 'province_staff';
+  role: string;
   province_id: string | null;
   county_id?: string | null;
   province_name?: string;
   province_code?: string;
+  county_name?: string;
+  county_code?: string;
   access: string[];
   is_active: boolean;
 }
@@ -109,6 +113,10 @@ const appModules = [
   { id: 'sms', label: 'پنل پیامکی' },
   { id: 'activities', label: 'فعالیت‌ها' },
   { id: 'referrals', label: 'معرفی‌نامه' },
+  { id: 'centers', label: 'مدیریت مراکز نفس' },
+  { id: 'communications', label: 'ارتباطات داخلی' },
+  { id: 'cultural', label: 'بانک محتوای فرهنگی' },
+  { id: 'profile', label: 'حساب کاربری' },
 ];
 
 const countyAccessModules = [
@@ -119,6 +127,10 @@ const countyAccessModules = [
   { id: 'sms', label: 'پنل پیامکی' },
   { id: 'activities', label: 'فعالیت‌های نفس' },
   { id: 'referrals', label: 'معرفی‌نامه' },
+  { id: 'centers', label: 'مدیریت مراکز نفس' },
+  { id: 'communications', label: 'ارتباطات داخلی' },
+  { id: 'cultural', label: 'بانک محتوای فرهنگی' },
+  { id: 'profile', label: 'حساب کاربری' },
 ];
 
 const logSections = [
@@ -130,6 +142,10 @@ const logSections = [
   'پنل پیامکی',
   'معرفی‌نامه',
   'فعالیت‌ها',
+  'مدیریت مراکز نفس',
+  'ارتباطات داخلی',
+  'بانک محتوای فرهنگی',
+  'حساب کاربری',
   'بکاپ',
   'ظاهر',
 ];
@@ -144,8 +160,26 @@ function getOnlineProfile(): OnlineProfile | null {
   }
 }
 
+function isNationalRole(role?: string | null) {
+  return (
+    role === 'national_admin' ||
+    role === 'country_admin' ||
+    role === 'super_admin' ||
+    role === 'main_admin' ||
+    role === 'central_admin'
+  );
+}
+
+function isProvinceAdminRole(role?: string | null) {
+  return role === 'province_admin' || role === 'province_manager';
+}
+
+function isProvinceStaffRole(role?: string | null) {
+  return role === 'province_staff' || role === 'county_user' || role === 'county_staff';
+}
+
 function isOnlineManager(profile: OnlineProfile | null) {
-  return profile?.role === 'national_admin' || profile?.role === 'province_admin';
+  return isNationalRole(profile?.role) || isProvinceAdminRole(profile?.role);
 }
 
 function makeCountyCode(name: string) {
@@ -163,7 +197,23 @@ function getRelationName(relation?: SupabaseRelation) {
   return relation.name || '-';
 }
 
-export function SettingsSection({
+function normalizeUsername(username: string) {
+  return username.trim().toLowerCase();
+}
+
+function updateCachedOnlineProfile(nextProfile: OnlineProfile) {
+  localStorage.setItem('nafas_online_profile', JSON.stringify(nextProfile));
+  localStorage.setItem('nafas_current_online_user_id', nextProfile.id || '');
+  localStorage.setItem('nafas_current_province_id', nextProfile.province_id || '');
+  localStorage.setItem('nafas_current_province_name', nextProfile.province_name || '');
+  localStorage.setItem('nafas_current_province_code', nextProfile.province_code || '');
+  localStorage.setItem('nafas_current_county_id', nextProfile.county_id || '');
+  localStorage.setItem('nafas_current_county_name', nextProfile.county_name || '');
+  localStorage.setItem('nafas_current_county_code', nextProfile.county_code || '');
+  localStorage.setItem('nafas_current_online_role', nextProfile.role || '');
+}
+
+function SettingsSection({
   onBack,
   darkMode,
   setDarkMode,
@@ -224,9 +274,23 @@ export function SettingsSection({
   const [countyUserActive, setCountyUserActive] = useState(true);
   const [showCountyPassword, setShowCountyPassword] = useState(false);
 
+  const [selfFullName, setSelfFullName] = useState('');
+  const [selfUsername, setSelfUsername] = useState('');
+  const [selfPassword, setSelfPassword] = useState('');
+  const [showSelfPassword, setShowSelfPassword] = useState(false);
+
+  const [showEditOnlineUserModal, setShowEditOnlineUserModal] = useState(false);
+  const [editingOnlineUser, setEditingOnlineUser] = useState<OnlineUserRow | null>(null);
+  const [editOnlineFullName, setEditOnlineFullName] = useState('');
+  const [editOnlineUsername, setEditOnlineUsername] = useState('');
+  const [editOnlinePassword, setEditOnlinePassword] = useState('');
+  const [editOnlineAccess, setEditOnlineAccess] = useState<string[]>([]);
+  const [editOnlineActive, setEditOnlineActive] = useState(true);
+  const [showEditOnlinePassword, setShowEditOnlinePassword] = useState(false);
+
   const canManageOnlineUsers = isOnlineManager(onlineProfile);
-  const isNational = onlineProfile?.role === 'national_admin';
-  const isProvinceAdmin = onlineProfile?.role === 'province_admin';
+  const isNational = isNationalRole(onlineProfile?.role);
+  const isProvinceAdmin = isProvinceAdminRole(onlineProfile?.role);
 
   useEffect(() => {
     const savedUsers = localStorage.getItem('nafas_users_list');
@@ -256,6 +320,11 @@ export function SettingsSection({
     const profile = getOnlineProfile();
     setOnlineProfile(profile);
 
+    if (profile) {
+      setSelfFullName(profile.full_name || '');
+      setSelfUsername(profile.username || '');
+    }
+
     loadOnlineManagementData(profile);
   }, []);
 
@@ -277,7 +346,7 @@ export function SettingsSection({
       const profileToUse = profile || getOnlineProfile();
 
       if (!profileToUse) {
-        setOnlineMessage('برای مدیریت آنلاین کاربران، ابتدا با حساب آنلاین وارد شوید.');
+        setOnlineMessage('برای مدیریت برخط کاربران، ابتدا با حساب برخط وارد شوید.');
         return;
       }
 
@@ -297,7 +366,7 @@ export function SettingsSection({
         .select('id, province_id, code, name, is_active')
         .order('name', { ascending: true });
 
-      if (profileToUse.role === 'province_admin') {
+      if (isProvinceAdminRole(profileToUse.role)) {
         countiesQuery = countiesQuery.eq('province_id', profileToUse.province_id);
       }
 
@@ -332,7 +401,7 @@ export function SettingsSection({
         )
         .order('full_name', { ascending: true });
 
-      if (profileToUse.role === 'province_admin') {
+      if (isProvinceAdminRole(profileToUse.role)) {
         usersQuery = usersQuery.eq('province_id', profileToUse.province_id);
       }
 
@@ -343,17 +412,15 @@ export function SettingsSection({
         ? usersResult.data
         : []) as unknown as OnlineUserRow[];
 
-      const visibleUsers =
-        profileToUse.role === 'national_admin'
-          ? rawUsers.filter(user => user.role === 'province_admin')
-          : rawUsers.filter(user => user.role === 'province_staff');
+      const visibleUsers = isNationalRole(profileToUse.role)
+        ? rawUsers.filter(user => isProvinceAdminRole(user.role))
+        : rawUsers.filter(user => isProvinceStaffRole(user.role));
 
       setOnlineUsers(visibleUsers);
-
-      setOnlineMessage('اطلاعات کاربران به‌روزرسانی شد.');
+      setOnlineMessage('اطلاعات کاربران تازه‌سازی شد.');
     } catch (error: any) {
       console.error(error);
-      setOnlineMessage(error?.message || 'خطا در دریافت اطلاعات آنلاین');
+      setOnlineMessage(error?.message || 'خطا در دریافت اطلاعات برخط');
     } finally {
       setOnlineLoading(false);
     }
@@ -475,7 +542,7 @@ export function SettingsSection({
     const newUser = {
       id: Date.now().toString(),
       name: newUserName,
-      username: newUserUsername.toLowerCase().trim(),
+      username: normalizeUsername(newUserUsername),
       role: 'staff',
       access: newUserAccess,
     };
@@ -520,7 +587,7 @@ export function SettingsSection({
 
   async function handleCreateProvinceAdmin() {
     if (!isNational) {
-      alert('فقط مدیر تهران می‌تواند مدیر استان بسازد.');
+      alert('فقط مدیر کشور می‌تواند مدیر استان بسازد.');
       return;
     }
 
@@ -547,14 +614,20 @@ export function SettingsSection({
       setOnlineLoading(true);
       setOnlineMessage('در حال ساخت مدیر استان...');
 
+      // یافتن نام واقعی استان جهت ثبت صحیح در دیتابیس
+      const selectedProv = provinces.find(p => p.id === provinceAdminProvinceId);
+      const provName = selectedProv ? selectedProv.name : '';
+
       const { data, error } = await supabase.functions.invoke('create-nafas-user', {
         body: {
           role: 'province_admin',
           full_name: provinceAdminFullName.trim(),
-          username: provinceAdminUsername.trim().toLowerCase(),
+          username: normalizeUsername(provinceAdminUsername),
           password: provinceAdminPassword.trim(),
           province_id: provinceAdminProvinceId,
+          province_name: provName,
           is_active: provinceAdminActive,
+          access: appModules.map(m => m.id),
         },
       });
 
@@ -564,10 +637,10 @@ export function SettingsSection({
       addActivityLog({
         action: 'ایجاد مدیر استان',
         section: 'تنظیمات',
-        targetType: 'کاربر آنلاین',
+        targetType: 'کاربر برخط',
         targetName: provinceAdminFullName.trim(),
-        targetId: provinceAdminUsername.trim().toLowerCase(),
-        details: `مدیر استان با نام کاربری ${provinceAdminUsername.trim().toLowerCase()} ایجاد شد.`,
+        targetId: normalizeUsername(provinceAdminUsername),
+        details: `مدیر استان با نام کاربری ${normalizeUsername(provinceAdminUsername)} ایجاد شد.`,
       });
 
       refreshLogs();
@@ -621,6 +694,7 @@ export function SettingsSection({
         name,
         code: makeCountyCode(name),
         is_active: true,
+        created_by: onlineProfile?.id || null,
       });
 
       if (error) throw error;
@@ -670,6 +744,7 @@ export function SettingsSection({
     }
 
     const provinceId = onlineProfile?.province_id || '';
+    const provinceName = onlineProfile?.province_name || '';
 
     if (!provinceId) {
       alert('استان شما مشخص نیست.');
@@ -685,15 +760,25 @@ export function SettingsSection({
       setOnlineLoading(true);
       setOnlineMessage('در حال ساخت کاربر شهرستان...');
 
+      // یافتن نام واقعی شهرستان جهت ثبت در دیتابیس
+      let finalCountyName = countyNameManual.trim();
+      if (countyId) {
+        const selectedCounty = counties.find(c => c.id === countyId);
+        if (selectedCounty) {
+          finalCountyName = selectedCounty.name;
+        }
+      }
+
       const { data, error } = await supabase.functions.invoke('create-nafas-user', {
         body: {
           role: 'province_staff',
           full_name: countyFullName.trim(),
-          username: countyUsername.trim().toLowerCase(),
+          username: normalizeUsername(countyUsername),
           password: countyPassword.trim(),
           province_id: provinceId,
+          province_name: provinceName,
           county_id: countyId || null,
-          county_name: countyId ? '' : countyNameManual.trim(),
+          county_name: finalCountyName,
           access: countyAccess,
           is_active: countyUserActive,
         },
@@ -705,10 +790,10 @@ export function SettingsSection({
       addActivityLog({
         action: 'ایجاد کاربر شهرستان',
         section: 'تنظیمات',
-        targetType: 'کاربر آنلاین',
+        targetType: 'کاربر برخط',
         targetName: countyFullName.trim(),
-        targetId: countyUsername.trim().toLowerCase(),
-        details: `کاربر ${countyFullName.trim()} با نام کاربری ${countyUsername.trim().toLowerCase()} ایجاد شد.`,
+        targetId: normalizeUsername(countyUsername),
+        details: `کاربر ${countyFullName.trim()} با نام کاربری ${normalizeUsername(countyUsername)} برای شهرستان ${finalCountyName} ایجاد شد.`,
       });
 
       refreshLogs();
@@ -739,8 +824,8 @@ export function SettingsSection({
     if (!canManageOnlineUsers) return;
 
     const canToggle =
-      (isNational && user.role === 'province_admin') ||
-      (isProvinceAdmin && user.role === 'province_staff');
+      (isNational && isProvinceAdminRole(user.role)) ||
+      (isProvinceAdmin && isProvinceStaffRole(user.role));
 
     if (!canToggle) {
       alert('شما اجازه تغییر وضعیت این کاربر را ندارید.');
@@ -765,7 +850,7 @@ export function SettingsSection({
       addActivityLog({
         action: user.is_active ? 'غیرفعال کردن کاربر' : 'فعال کردن کاربر',
         section: 'تنظیمات',
-        targetType: 'کاربر آنلاین',
+        targetType: 'کاربر برخط',
         targetName: user.full_name,
         targetId: user.username,
         details: `وضعیت کاربر ${user.full_name} تغییر کرد.`,
@@ -781,6 +866,181 @@ export function SettingsSection({
     }
   }
 
+  function canEditOnlineUser(user: OnlineUserRow) {
+    if (!onlineProfile) return false;
+
+    if (user.id === onlineProfile.id) return true;
+
+    if (isNational && isProvinceAdminRole(user.role)) return true;
+
+    if (
+      isProvinceAdmin &&
+      isProvinceStaffRole(user.role) &&
+      user.province_id === onlineProfile.province_id
+    ) {
+      return true;
+    }
+
+    return false;
+  }
+
+  function openEditOnlineUser(user: OnlineUserRow) {
+    if (!canEditOnlineUser(user)) {
+      alert('شما اجازه ویرایش این کاربر را ندارید.');
+      return;
+    }
+
+    setEditingOnlineUser(user);
+    setEditOnlineFullName(user.full_name || '');
+    setEditOnlineUsername(user.username || '');
+    setEditOnlinePassword('');
+    setEditOnlineAccess(Array.isArray(user.access) ? user.access : []);
+    setEditOnlineActive(Boolean(user.is_active));
+    setShowEditOnlinePassword(false);
+    setShowEditOnlineUserModal(true);
+  }
+
+  function toggleEditOnlineAccess(moduleId: string) {
+    setEditOnlineAccess(prev =>
+      prev.includes(moduleId)
+        ? prev.filter(id => id !== moduleId)
+        : [...prev, moduleId],
+    );
+  }
+
+  async function updateOnlineUserCredentials() {
+    if (!editingOnlineUser) return;
+
+    if (!editOnlineFullName.trim() || !editOnlineUsername.trim()) {
+      alert('نام کامل و نام کاربری را وارد کنید.');
+      return;
+    }
+
+    if (editOnlinePassword.trim() && editOnlinePassword.trim().length < 6) {
+      alert('رمز عبور جدید باید حداقل ۶ کاراکتر باشد.');
+      return;
+    }
+
+    try {
+      setOnlineLoading(true);
+      setOnlineMessage('در حال تازه‌سازی کاربر...');
+
+      const { data, error } = await supabase.functions.invoke('update-nafas-user', {
+        body: {
+          target_user_id: editingOnlineUser.id,
+          full_name: editOnlineFullName.trim(),
+          username: normalizeUsername(editOnlineUsername),
+          password: editOnlinePassword.trim() || null,
+          access: isProvinceStaffRole(editingOnlineUser.role)
+            ? editOnlineAccess
+            : appModules.map(m => m.id),
+          is_active: editOnlineActive,
+        },
+      });
+
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      addActivityLog({
+        action: 'ویرایش کاربر برخط',
+        section: 'تنظیمات',
+        targetType: 'کاربر برخط',
+        targetName: editOnlineFullName.trim(),
+        targetId: normalizeUsername(editOnlineUsername),
+        details: editOnlinePassword.trim()
+          ? 'نام، نام کاربری، دسترسی‌ها و رمز عبور کاربر تغییر کرد.'
+          : 'نام، نام کاربری و دسترسی‌های کاربر تغییر کرد.',
+      });
+
+      refreshLogs();
+
+      setShowEditOnlineUserModal(false);
+      setEditingOnlineUser(null);
+      setEditOnlinePassword('');
+
+      await loadOnlineManagementData();
+
+      setOnlineMessage(data?.message || 'کاربر با موفقیت تازه‌سازی شد.');
+      alert('کاربر با موفقیت تازه‌سازی شد.');
+    } catch (error: any) {
+      console.error(error);
+      const message = error?.message || 'خطا در ویرایش کاربر';
+      setOnlineMessage(message);
+      alert(message);
+    } finally {
+      setOnlineLoading(false);
+    }
+  }
+
+  async function updateSelfAccount() {
+    if (!onlineProfile) {
+      alert('ابتدا با حساب برخط وارد شوید.');
+      return;
+    }
+
+    if (!selfFullName.trim() || !selfUsername.trim()) {
+      alert('نام کامل و نام کاربری را وارد کنید.');
+      return;
+    }
+
+    if (selfPassword.trim() && selfPassword.trim().length < 6) {
+      alert('رمز عبور جدید باید حداقل ۶ کاراکتر باشد.');
+      return;
+    }
+
+    try {
+      setOnlineLoading(true);
+      setOnlineMessage('در حال تازه‌سازی حساب کاربری...');
+
+      const { data, error } = await supabase.functions.invoke('update-nafas-user', {
+        body: {
+          target_user_id: onlineProfile.id,
+          full_name: selfFullName.trim(),
+          username: normalizeUsername(selfUsername),
+          password: selfPassword.trim() || null,
+          access: onlineProfile.access || [],
+          is_active: true,
+        },
+      });
+
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      const nextProfile: OnlineProfile = {
+        ...onlineProfile,
+        full_name: selfFullName.trim(),
+        username: normalizeUsername(selfUsername),
+      };
+
+      setOnlineProfile(nextProfile);
+      updateCachedOnlineProfile(nextProfile);
+
+      addActivityLog({
+        action: 'ویرایش حساب کاربری',
+        section: 'حساب کاربری',
+        targetType: 'حساب کاربری',
+        targetName: selfFullName.trim(),
+        targetId: normalizeUsername(selfUsername),
+        details: selfPassword.trim()
+          ? 'کاربر نام، نام کاربری و رمز عبور خود را تغییر داد.'
+          : 'کاربر نام و نام کاربری خود را تغییر داد.',
+      });
+
+      refreshLogs();
+
+      setSelfPassword('');
+      setOnlineMessage(data?.message || 'حساب کاربری با موفقیت تازه‌سازی شد.');
+      alert('حساب کاربری با موفقیت تازه‌سازی شد. برای ورود بعدی از نام کاربری جدید استفاده کنید.');
+    } catch (error: any) {
+      console.error(error);
+      const message = error?.message || 'خطا در ویرایش حساب کاربری';
+      setOnlineMessage(message);
+      alert(message);
+    } finally {
+      setOnlineLoading(false);
+    }
+  }
+
   const handleExportBackup = () => {
     const backupData: any = {};
 
@@ -789,6 +1049,7 @@ export function SettingsSection({
       'nafas_benefactors',
       'nafas_doctors',
       'nafas_activities',
+      'nafas_referrals',
       'nafas_users_list',
       'nafas_activity_logs',
       'nafas_sms_history',
@@ -797,6 +1058,18 @@ export function SettingsSection({
       'nafas_sms_sender',
       'nafas_openai_api_key',
       'nafas_openai_model',
+      'nafas_online_profile',
+      'nafas_active_user',
+      'nafas_current_role',
+      'nafas_current_section',
+      'nafas_current_online_user_id',
+      'nafas_current_province_id',
+      'nafas_current_province_name',
+      'nafas_current_province_code',
+      'nafas_current_county_id',
+      'nafas_current_county_name',
+      'nafas_current_county_code',
+      'nafas_current_online_role',
     ].forEach(k => {
       backupData[k] = localStorage.getItem(k);
     });
@@ -962,6 +1235,21 @@ export function SettingsSection({
     refreshLogs();
   }
 
+  function handleFontSizeChange(value: number) {
+    setFontSize(value);
+
+    addActivityLog({
+      action: 'تغییر اندازه فونت',
+      section: 'ظاهر',
+      targetType: 'تنظیمات ظاهری',
+      targetName: `${value}px`,
+      targetId: 'font-size',
+      details: `اندازه فونت سامانه به ${value}px تغییر کرد.`,
+    });
+
+    refreshLogs();
+  }
+
   const availableCountiesForUser = counties.filter(c => {
     return onlineProfile?.province_id
       ? c.province_id === onlineProfile.province_id
@@ -993,6 +1281,76 @@ export function SettingsSection({
 
       <div className="max-w-6xl mx-auto p-6 space-y-8 mt-4">
         <section className="bg-card border border-border rounded-2xl p-6 shadow-sm">
+          <div className="flex items-center gap-2 mb-5">
+            <KeyRound className="text-primary" size={22} />
+
+            <div>
+              <h3 className="text-lg font-bold text-foreground">
+                حساب کاربری من
+              </h3>
+
+              <p className="text-xs text-muted-foreground mt-1">
+                هر کاربر می‌تواند نام، نام کاربری و رمز عبور خودش را تغییر دهد.
+              </p>
+            </div>
+          </div>
+
+          {!onlineProfile ? (
+            <div className="rounded-2xl border border-amber-200 bg-amber-50 text-amber-700 p-4 text-sm leading-7">
+              برای ویرایش حساب کاربری، ابتدا باید با حساب برخط وارد شوید.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <input
+                value={selfFullName}
+                onChange={e => setSelfFullName(e.target.value)}
+                className="form-input"
+                placeholder="نام کامل"
+              />
+
+              <input
+                value={selfUsername}
+                onChange={e => setSelfUsername(e.target.value)}
+                className="form-input text-left"
+                dir="ltr"
+                placeholder="نام کاربری"
+              />
+
+              <div className="relative md:col-span-2">
+                <input
+                  value={selfPassword}
+                  onChange={e => setSelfPassword(e.target.value)}
+                  type={showSelfPassword ? 'text' : 'password'}
+                  className="form-input text-left pl-10"
+                  dir="ltr"
+                  placeholder="رمز عبور جدید؛ اگر نمی‌خواهید تغییر کند خالی بگذارید"
+                />
+
+                <button
+                  type="button"
+                  onClick={() => setShowSelfPassword(!showSelfPassword)}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+                >
+                  {showSelfPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                </button>
+              </div>
+
+              <div className="md:col-span-2 flex justify-end">
+                <button
+                  onClick={updateSelfAccount}
+                  disabled={onlineLoading}
+                  type="button"
+                  className="bg-primary text-white font-bold px-5 py-3 rounded-xl disabled:opacity-60 flex items-center justify-center gap-2"
+                >
+                  <Save size={16} />
+                  ذخیره تغییرات حساب من
+                </button>
+              </div>
+            </div>
+          )}
+        </section>
+
+        <section className="bg-card border border-border rounded-2xl p-6 shadow-sm">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6 border-b border-border pb-4">
             <div className="flex items-center gap-2">
               <Building2 className="text-emerald-500" size={22} />
@@ -1003,15 +1361,15 @@ export function SettingsSection({
                     ? 'مدیریت مدیران استان‌ها'
                     : isProvinceAdmin
                       ? 'مدیریت شهرستان‌ها و کاربران شهرستان'
-                      : 'مدیریت کاربران'}
+                      : 'مدیریت کاربران برخط'}
                 </h3>
 
                 <p className="text-xs text-muted-foreground mt-1">
                   {isNational
-                    ? 'مدیر تهران فقط می‌تواند برای هر استان مدیر استان بسازد.'
+                    ? 'مدیر کشور می‌تواند برای هر استان مدیر استان بسازد و وضعیت کاربران استانی را مدیریت کند.'
                     : isProvinceAdmin
                       ? 'مدیر استان می‌تواند شهرستان و کاربر شهرستان را با سطح دسترسی مشخص بسازد.'
-                      : 'این بخش برای حساب شما فعال نیست.'}
+                      : 'این بخش فقط برای مدیر کشور و مدیر استان فعال است.'}
                 </p>
               </div>
             </div>
@@ -1022,19 +1380,19 @@ export function SettingsSection({
               className="flex items-center gap-2 bg-primary/10 text-primary border border-primary/20 px-4 py-2 rounded-xl text-xs font-bold hover:bg-primary/15"
             >
               <RefreshCw size={15} className={onlineLoading ? 'animate-spin' : ''} />
-              به‌روزرسانی
+              تازه‌سازی
             </button>
           </div>
 
           {!canManageOnlineUsers ? (
             <div className="rounded-2xl border border-amber-200 bg-amber-50 text-amber-700 p-4 text-sm leading-7 flex gap-2">
               <AlertCircle size={18} className="shrink-0 mt-0.5" />
-              این بخش فقط برای مدیر تهران و مدیر استان فعال است.
+              این بخش فقط برای مدیر کشور و مدیر استان فعال است.
             </div>
           ) : (
             <div className="space-y-6">
               <div className="rounded-2xl border border-border bg-muted/30 p-4 text-xs text-muted-foreground">
-                {onlineMessage || 'آماده مدیریت کاربران آنلاین.'}
+                {onlineMessage || 'آماده مدیریت کاربران برخط.'}
               </div>
 
               {isNational && (
@@ -1048,7 +1406,7 @@ export function SettingsSection({
                   </div>
 
                   <p className="text-xs text-muted-foreground leading-6 mb-4">
-                    مدیر استان ساخته‌شده دسترسی کامل دارد، اما فقط اطلاعات استان خودش را می‌بیند.
+                    مدیر استان ساخته‌شده دسترسی مدیریتی دارد، اما فقط اطلاعات استان خودش را می‌بیند.
                   </p>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -1233,7 +1591,7 @@ export function SettingsSection({
                       />
 
                       <div>
-                        <label className="block text-xs font-bold text-foreground mb-3 flex items-center gap-2">
+                        <label className="text-xs font-bold text-foreground mb-3 flex items-center gap-2">
                           <Shield size={14} className="text-emerald-500" />
                           دسترسی‌های کاربر شهرستان:
                         </label>
@@ -1286,28 +1644,26 @@ export function SettingsSection({
               )}
 
               <div className="border border-border rounded-2xl overflow-hidden">
-                <div className="px-4 py-3 border-b border-border bg-muted/40 font-bold text-foreground">
-                  {tableTitle}
+                <div className="p-4 bg-muted/40 border-b border-border flex items-center justify-between">
+                  <h4 className="font-bold text-foreground">
+                    {tableTitle}
+                  </h4>
+
+                  <span className="text-xs text-muted-foreground">
+                    {onlineUsers.length} کاربر
+                  </span>
                 </div>
 
                 <div className="overflow-x-auto">
-                  <table className="w-full text-sm min-w-[900px]">
-                    <thead className="bg-muted/50">
+                  <table className="w-full text-sm">
+                    <thead className="bg-muted/40 text-muted-foreground">
                       <tr>
-                        {[
-                          'نام',
-                          'نام کاربری',
-                          'نقش',
-                          'استان',
-                          'شهرستان',
-                          'دسترسی',
-                          'وضعیت',
-                          'عملیات',
-                        ].map(h => (
-                          <th key={h} className="px-4 py-3 text-right text-muted-foreground">
-                            {h}
-                          </th>
-                        ))}
+                        <th className="px-4 py-3 text-right">نام</th>
+                        <th className="px-4 py-3 text-right">نام کاربری</th>
+                        <th className="px-4 py-3 text-right">استان</th>
+                        <th className="px-4 py-3 text-right">شهرستان</th>
+                        <th className="px-4 py-3 text-right">وضعیت</th>
+                        <th className="px-4 py-3 text-right">عملیات</th>
                       </tr>
                     </thead>
 
@@ -1318,37 +1674,23 @@ export function SettingsSection({
                             {user.full_name}
                           </td>
 
-                          <td className="px-4 py-3" dir="ltr">
-                            @{user.username}
+                          <td className="px-4 py-3 text-muted-foreground" dir="ltr">
+                            {user.username}
                           </td>
 
-                          <td className="px-4 py-3">
-                            {user.role === 'national_admin'
-                              ? 'مدیر تهران'
-                              : user.role === 'province_admin'
-                                ? 'مدیر استان'
-                                : 'کاربر شهرستان'}
-                          </td>
-
-                          <td className="px-4 py-3">
+                          <td className="px-4 py-3 text-muted-foreground">
                             {getRelationName(user.provinces)}
                           </td>
 
-                          <td className="px-4 py-3">
+                          <td className="px-4 py-3 text-muted-foreground">
                             {getRelationName(user.counties)}
                           </td>
 
                           <td className="px-4 py-3">
-                            {Array.isArray(user.access)
-                              ? `${user.access.length} بخش`
-                              : '۰ بخش'}
-                          </td>
-
-                          <td className="px-4 py-3">
                             <span
-                              className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-bold ${
+                              className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-bold ${
                                 user.is_active
-                                  ? 'bg-green-100 text-green-700'
+                                  ? 'bg-emerald-100 text-emerald-700'
                                   : 'bg-rose-100 text-rose-700'
                               }`}
                             >
@@ -1358,8 +1700,7 @@ export function SettingsSection({
                           </td>
 
                           <td className="px-4 py-3">
-                            {((isNational && user.role === 'province_admin') ||
-                              (isProvinceAdmin && user.role === 'province_staff')) && (
+                            <div className="flex items-center gap-3">
                               <button
                                 onClick={() => toggleOnlineUserActive(user)}
                                 type="button"
@@ -1367,15 +1708,26 @@ export function SettingsSection({
                               >
                                 {user.is_active ? 'غیرفعال کردن' : 'فعال کردن'}
                               </button>
-                            )}
+
+                              <button
+                                onClick={() => openEditOnlineUser(user)}
+                                type="button"
+                                className="text-blue-600 hover:underline text-xs font-bold"
+                              >
+                                تغییر یوزر/رمز
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))}
 
                       {onlineUsers.length === 0 && (
                         <tr>
-                          <td colSpan={8} className="px-4 py-8 text-center text-muted-foreground">
-                            هنوز کاربری برای نمایش وجود ندارد.
+                          <td
+                            colSpan={6}
+                            className="px-4 py-8 text-center text-muted-foreground"
+                          >
+                            کاربری برای نمایش وجود ندارد.
                           </td>
                         </tr>
                       )}
@@ -1388,153 +1740,300 @@ export function SettingsSection({
         </section>
 
         <section className="bg-card border border-border rounded-2xl p-6 shadow-sm">
-          <div className="flex items-center justify-between mb-6 border-b border-border pb-4">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6 border-b border-border pb-4">
             <div className="flex items-center gap-2">
-              <Shield className="text-emerald-500" size={20} />
+              <UserCheck className="text-primary" size={22} />
 
-              <h3 className="text-lg font-bold text-foreground">
-                مدیریت محلی اعضا و کنترل سطح دسترسی
-              </h3>
+              <div>
+                <h3 className="text-lg font-bold text-foreground">
+                  کاربران محلی / برون خط (آفلاین)
+                </h3>
+
+                <p className="text-xs text-muted-foreground mt-1">
+                  این بخش برای دسترسی‌های محلی و تست برون خط (آفلاین) حفظ شده است.
+                </p>
+              </div>
             </div>
 
             {safeRole === 'admin' && (
               <button
                 onClick={() => handleActionRequest('add')}
-                className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-sm font-medium transition-colors"
                 type="button"
+                className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-xl text-sm font-bold"
               >
                 <UserPlus size={16} />
-                افزودن کاربر همکار محلی
+                افزودن کاربر محلی
               </button>
             )}
           </div>
 
-          <div className="space-y-4">
-            {users.map(user => (
-              <div
-                key={user.id}
-                className={`flex flex-col sm:flex-row gap-4 sm:items-center justify-between p-4 border rounded-xl transition-all ${
-                  safeRole === 'staff' && activeUser?.id === user.id
-                    ? 'bg-primary/5 border-primary/30'
-                    : 'bg-muted/50 border-border'
-                }`}
-              >
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-primary/10 text-primary rounded-full flex items-center justify-center shrink-0">
-                    <User size={24} />
-                  </div>
-
-                  <div>
-                    <h4 className="font-bold text-foreground flex items-center gap-2">
-                      {user.name}
-
-                      {user.role === 'admin' && (
-                        <span className="text-[10px] bg-amber-500/20 text-amber-600 px-2 py-0.5 rounded-full border border-amber-500/30">
-                          مدیر اصلی
-                        </span>
-                      )}
-
-                      {safeRole === 'staff' && activeUser?.id === user.id && (
-                        <span className="text-[10px] bg-emerald-500/20 text-emerald-600 px-2 py-0.5 rounded-full">
-                          حساب فعلی شما
-                        </span>
-                      )}
-                    </h4>
-
-                    <p className="text-sm text-muted-foreground" dir="ltr">
-                      @{user.username}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-xs bg-muted border border-border px-3 py-1 rounded-full text-foreground hidden sm:block">
-                    {user.role === 'admin'
-                      ? 'دسترسی کامل'
-                      : `${user.access.length} بخش مجاز`}
-                  </span>
-
-                  {safeRole === 'admin' && user.role !== 'admin' && (
-                    <>
-                      <button
-                        onClick={() =>
-                          handleActionRequest('switchToStaff', undefined, user)
-                        }
-                        className="flex items-center gap-1 bg-primary/10 text-primary border border-primary/20 px-3 py-1.5 rounded-xl text-xs font-medium hover:bg-primary/20"
-                        type="button"
-                      >
-                        <UserCheck size={14} />
-                        سوییچ به این کاربر
-                      </button>
-
-                      <button
-                        onClick={() => handleActionRequest('delete', user.id, user)}
-                        className="text-rose-500 hover:bg-rose-500/10 p-2 rounded-lg"
-                        title="حذف"
-                        type="button"
-                      >
-                        <Trash size={18} />
-                      </button>
-                    </>
-                  )}
-
-                  {safeRole === 'staff' && activeUser?.id === user.id && (
-                    <button
-                      onClick={() => handleActionRequest('switchToAdmin')}
-                      className="flex items-center gap-1 bg-rose-500/10 text-rose-600 border border-rose-500/20 px-3 py-1.5 rounded-xl text-xs font-bold hover:bg-rose-500/20"
-                      type="button"
-                    >
-                      <LogOut size={14} />
-                      بازگشت به مدیریت با رمز
-                    </button>
-                  )}
-                </div>
+          {safeRole === 'staff' ? (
+            <div className="rounded-2xl border border-blue-200 bg-blue-50 text-blue-700 p-4 text-sm leading-7 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+              <div>
+                شما اکنون با حساب کارمند فعال هستید:{' '}
+                <span className="font-bold">
+                  {activeUser?.name || activeUser?.username || 'کارمند'}
+                </span>
               </div>
-            ))}
+
+              <button
+                type="button"
+                onClick={() => handleActionRequest('switchToAdmin')}
+                className="bg-blue-600 text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 justify-center"
+              >
+                <LogOut size={14} />
+                بازگشت به مدیریت
+              </button>
+            </div>
+          ) : (
+            <div className="overflow-x-auto border border-border rounded-2xl">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/50 text-muted-foreground">
+                  <tr>
+                    <th className="px-4 py-3 text-right">نام</th>
+                    <th className="px-4 py-3 text-right">نام کاربری</th>
+                    <th className="px-4 py-3 text-right">نقش</th>
+                    <th className="px-4 py-3 text-right">دسترسی‌ها</th>
+                    <th className="px-4 py-3 text-right">عملیات</th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {users.map(user => (
+                    <tr key={user.id} className="border-t border-border">
+                      <td className="px-4 py-3 font-bold text-foreground">
+                        {user.name}
+                      </td>
+
+                      <td className="px-4 py-3 text-muted-foreground" dir="ltr">
+                        {user.username}
+                      </td>
+
+                      <td className="px-4 py-3">
+                        <span
+                          className={`inline-flex px-2 py-1 rounded-full text-xs font-bold ${
+                            user.role === 'admin'
+                              ? 'bg-primary/10 text-primary'
+                              : 'bg-muted text-muted-foreground'
+                          }`}
+                        >
+                          {user.role === 'admin' ? 'مدیر' : 'کارمند'}
+                        </span>
+                      </td>
+
+                      <td className="px-4 py-3 text-muted-foreground">
+                        {Array.isArray(user.access) ? user.access.length : 0} بخش
+                      </td>
+
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-3">
+                          {user.role !== 'admin' && (
+                            <button
+                              type="button"
+                              onClick={() => handleActionRequest('switchToStaff', user.id, user)}
+                              className="text-blue-600 hover:underline text-xs font-bold"
+                            >
+                              ورود آزمایشی
+                            </button>
+                          )}
+
+                          {user.id !== 'admin-1' && (
+                            <button
+                              type="button"
+                              onClick={() => handleActionRequest('delete', user.id, user)}
+                              className="text-rose-600 hover:underline text-xs font-bold"
+                            >
+                              حذف
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+
+                  {users.length === 0 && (
+                    <tr>
+                      <td
+                        colSpan={5}
+                        className="px-4 py-8 text-center text-muted-foreground"
+                      >
+                        کاربر محلی وجود ندارد.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+
+        <section className="bg-card border border-border rounded-2xl p-6 shadow-sm">
+          <div className="flex items-center gap-2 mb-5">
+            {darkMode ? (
+              <Moon className="text-primary" size={22} />
+            ) : (
+              <Sun className="text-primary" size={22} />
+            )}
+
+            <div>
+              <h3 className="text-lg font-bold text-foreground">
+                ظاهر سامانه
+              </h3>
+
+              <p className="text-xs text-muted-foreground mt-1">
+                تنظیم حالت روشن/تاریک و اندازه فونت.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div className="rounded-2xl border border-border p-4 bg-muted/20">
+              <p className="font-bold text-foreground mb-3">
+                حالت نمایش
+              </p>
+
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => handleThemeChange(false)}
+                  className={`rounded-xl p-4 border flex items-center justify-center gap-2 font-bold ${
+                    !darkMode
+                      ? 'border-primary bg-primary/10 text-primary'
+                      : 'border-border text-muted-foreground'
+                  }`}
+                >
+                  <Sun size={17} />
+                  روشن
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleThemeChange(true)}
+                  className={`rounded-xl p-4 border flex items-center justify-center gap-2 font-bold ${
+                    darkMode
+                      ? 'border-primary bg-primary/10 text-primary'
+                      : 'border-border text-muted-foreground'
+                  }`}
+                >
+                  <Moon size={17} />
+                  تاریک
+                </button>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-border p-4 bg-muted/20">
+              <p className="font-bold text-foreground mb-3">
+                اندازه فونت: {fontSize}px
+              </p>
+
+              <input
+                type="range"
+                min={13}
+                max={19}
+                value={fontSize}
+                onChange={e => handleFontSizeChange(Number(e.target.value))}
+                className="w-full accent-primary"
+              />
+
+              <div className="flex justify-between text-xs text-muted-foreground mt-2">
+                <span>کوچک</span>
+                <span>متوسط</span>
+                <span>بزرگ</span>
+              </div>
+            </div>
           </div>
         </section>
 
         <section className="bg-card border border-border rounded-2xl p-6 shadow-sm">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6 border-b border-border pb-4">
+          <div className="flex items-center gap-2 mb-5">
+            <FileDown className="text-primary" size={22} />
+
+            <div>
+              <h3 className="text-lg font-bold text-foreground">
+                بکاپ و بازیابی
+              </h3>
+
+              <p className="text-xs text-muted-foreground mt-1">
+                اطلاعات محلی سامانه را خروجی بگیرید یا از فایل بکاپ بازیابی کنید.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <button
+              type="button"
+              onClick={handleExportBackup}
+              className="rounded-2xl border border-border bg-muted/30 p-5 text-right hover:border-primary/40 transition-all"
+            >
+              <div className="flex items-center gap-2 text-primary font-bold mb-2">
+                <Download size={18} />
+                دریافت بکاپ
+              </div>
+
+              <p className="text-xs text-muted-foreground leading-6">
+                یک فایل JSON از داده‌های ذخیره‌شده روی همین سیستم دریافت می‌شود.
+              </p>
+            </button>
+
+            <label className="rounded-2xl border border-border bg-muted/30 p-5 text-right hover:border-primary/40 transition-all cursor-pointer">
+              <div className="flex items-center gap-2 text-primary font-bold mb-2">
+                <Upload size={18} />
+                بازیابی بکاپ
+              </div>
+
+              <p className="text-xs text-muted-foreground leading-6">
+                فایل بکاپ قبلی را انتخاب کنید تا اطلاعات محلی بازیابی شود.
+              </p>
+
+              <input
+                type="file"
+                accept="application/json,.json"
+                onChange={handleImportBackup}
+                className="hidden"
+              />
+            </label>
+          </div>
+        </section>
+
+        <section className="bg-card border border-border rounded-2xl p-6 shadow-sm">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-5">
             <div className="flex items-center gap-2">
-              <ClipboardList className="text-primary" size={20} />
+              <ClipboardList className="text-primary" size={22} />
 
               <div>
                 <h3 className="text-lg font-bold text-foreground">
-                  لاگ امنیتی و گزارش فعالیت کاربران
+                  گزارش فعالیت کاربران
                 </h3>
 
                 <p className="text-xs text-muted-foreground mt-1">
-                  ثبت خودکار کارهای مدیر و کاربران همکار در سیستم
+                  ثبت عملیات مهم کاربران در بخش‌های مختلف سامانه.
                 </p>
               </div>
             </div>
 
             <div className="flex flex-wrap gap-2">
               <button
-                onClick={exportLogsCSV}
                 type="button"
-                className="flex items-center gap-2 bg-primary/10 text-primary border border-primary/20 px-3 py-2 rounded-xl text-xs font-bold hover:bg-primary/15"
+                onClick={exportLogsCSV}
+                className="bg-primary/10 text-primary border border-primary/20 px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2"
               >
-                <FileDown size={15} />
+                <FileDown size={14} />
                 خروجی CSV
               </button>
 
-              {safeRole === 'admin' && (
-                <button
-                  onClick={() => handleActionRequest('clearLogs')}
-                  type="button"
-                  className="flex items-center gap-2 bg-rose-500/10 text-rose-600 border border-rose-500/20 px-3 py-2 rounded-xl text-xs font-bold hover:bg-rose-500/15"
-                >
-                  <Eraser size={15} />
-                  پاک کردن لاگ‌ها
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={() => handleActionRequest('clearLogs')}
+                className="bg-rose-500/10 text-rose-600 border border-rose-500/20 px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2"
+              >
+                <Eraser size={14} />
+                پاکسازی لاگ‌ها
+              </button>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-5">
-            <div className="relative md:col-span-2">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-5">
+            <div className="relative">
               <Search
                 size={15}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
@@ -1543,8 +2042,8 @@ export function SettingsSection({
               <input
                 value={logSearch}
                 onChange={e => setLogSearch(e.target.value)}
-                placeholder="جستجو با نام کاربر، عملیات، بخش، کد پرونده..."
                 className="form-input pr-9"
+                placeholder="جستجو در لاگ‌ها..."
               />
             </div>
 
@@ -1571,257 +2070,219 @@ export function SettingsSection({
             </select>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-5">
-            <StatBox
-              label="کل لاگ‌ها"
-              value={activityLogs.length}
-              color="text-primary"
-            />
+          <div className="overflow-x-auto border border-border rounded-2xl">
+            <table className="w-full text-xs">
+              <thead className="bg-muted/50 text-muted-foreground">
+                <tr>
+                  <th className="px-3 py-3 text-right">تاریخ</th>
+                  <th className="px-3 py-3 text-right">ساعت</th>
+                  <th className="px-3 py-3 text-right">کاربر</th>
+                  <th className="px-3 py-3 text-right">بخش</th>
+                  <th className="px-3 py-3 text-right">عملیات</th>
+                  <th className="px-3 py-3 text-right">موضوع</th>
+                  <th className="px-3 py-3 text-right">توضیحات</th>
+                </tr>
+              </thead>
 
-            <StatBox
-              label="عملیات مدیر"
-              value={activityLogs.filter(log => log.role === 'admin').length}
-              color="text-emerald-600"
-            />
+              <tbody>
+                {filteredLogs.map((log, index) => (
+                  <tr key={`${log.date}-${log.time}-${index}`} className="border-t border-border">
+                    <td className="px-3 py-3 text-muted-foreground">
+                      {log.date}
+                    </td>
 
-            <StatBox
-              label="عملیات کاربران"
-              value={activityLogs.filter(log => log.role === 'staff').length}
-              color="text-violet-600"
-            />
+                    <td className="px-3 py-3 text-muted-foreground">
+                      {log.time}
+                    </td>
 
-            <StatBox
-              label="نتایج فیلتر"
-              value={filteredLogs.length}
-              color="text-rose-600"
-            />
-          </div>
+                    <td className="px-3 py-3 font-bold text-foreground">
+                      {log.userName || log.username || '-'}
+                    </td>
 
-          <div className="border border-border rounded-2xl overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm min-w-[1000px]">
-                <thead className="bg-muted/60">
-                  <tr>
-                    {[
-                      'تاریخ',
-                      'ساعت',
-                      'کاربر',
-                      'نقش',
-                      'بخش',
-                      'عملیات',
-                      'موضوع',
-                      'کد پرونده',
-                      'توضیحات',
-                    ].map(item => (
-                      <th
-                        key={item}
-                        className="px-4 py-3 text-right text-muted-foreground font-bold"
-                      >
-                        {item}
-                      </th>
-                    ))}
+                    <td className="px-3 py-3 text-muted-foreground">
+                      {log.section}
+                    </td>
+
+                    <td className="px-3 py-3 text-primary font-bold">
+                      {log.action}
+                    </td>
+
+                    <td className="px-3 py-3 text-muted-foreground">
+                      {log.targetName || '-'}
+                    </td>
+
+                    <td className="px-3 py-3 text-muted-foreground max-w-[320px]">
+                      {log.details || '-'}
+                    </td>
                   </tr>
-                </thead>
+                ))}
 
-                <tbody>
-                  {filteredLogs.map((log, index) => (
-                    <tr
-                      key={log.id}
-                      className={`border-t border-border hover:bg-muted/30 ${
-                        index % 2 === 0 ? '' : 'bg-muted/10'
-                      }`}
+                {filteredLogs.length === 0 && (
+                  <tr>
+                    <td
+                      colSpan={7}
+                      className="px-4 py-8 text-center text-muted-foreground"
                     >
-                      <td className="px-4 py-3 whitespace-nowrap">{log.date}</td>
-                      <td className="px-4 py-3 whitespace-nowrap">{log.time}</td>
-
-                      <td className="px-4 py-3">
-                        <div>
-                          <p className="font-bold text-foreground">{log.userName}</p>
-                          <p className="text-xs text-muted-foreground" dir="ltr">
-                            @{log.username}
-                          </p>
-                        </div>
-                      </td>
-
-                      <td className="px-4 py-3">
-                        <span
-                          className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-bold ${
-                            log.role === 'admin'
-                              ? 'bg-amber-100 text-amber-700'
-                              : 'bg-blue-100 text-blue-700'
-                          }`}
-                        >
-                          <ShieldCheck size={12} />
-                          {log.role === 'admin' ? 'مدیر' : 'کارمند'}
-                        </span>
-                      </td>
-
-                      <td className="px-4 py-3">{log.section}</td>
-                      <td className="px-4 py-3 font-bold text-primary">{log.action}</td>
-                      <td className="px-4 py-3">{log.targetName}</td>
-
-                      <td className="px-4 py-3">
-                        {log.trackingCode ? (
-                          <span
-                            dir="ltr"
-                            className="bg-primary/10 text-primary rounded-full px-2 py-1 text-xs font-bold"
-                          >
-                            {log.trackingCode}
-                          </span>
-                        ) : (
-                          <span className="text-muted-foreground">-</span>
-                        )}
-                      </td>
-
-                      <td className="px-4 py-3 text-muted-foreground max-w-[260px]">
-                        {log.details || '-'}
-                      </td>
-                    </tr>
-                  ))}
-
-                  {filteredLogs.length === 0 && (
-                    <tr>
-                      <td colSpan={9} className="px-4 py-8 text-center text-muted-foreground">
-                        هنوز گزارشی برای نمایش وجود ندارد.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </section>
-
-        <section className="bg-card border border-border rounded-2xl p-6 shadow-sm">
-          <div className="flex items-center gap-2 mb-6 border-b border-border pb-4">
-            <Sun className="text-primary" size={20} />
-
-            <h3 className="text-lg font-bold text-foreground">
-              ظاهر و نمایش
-            </h3>
-          </div>
-
-          <div className="space-y-6">
-            <div className="flex items-center justify-between">
-              <p className="font-semibold text-foreground">حالت نمایش</p>
-
-              <div className="flex bg-muted p-1 rounded-xl border border-border">
-                <button
-                  onClick={() => handleThemeChange(false)}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm transition-all ${
-                    !darkMode
-                      ? 'bg-card text-primary shadow-sm'
-                      : 'text-muted-foreground'
-                  }`}
-                  type="button"
-                >
-                  <Sun size={16} />
-                  روشن
-                </button>
-
-                <button
-                  onClick={() => handleThemeChange(true)}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm transition-all ${
-                    darkMode
-                      ? 'bg-card text-primary shadow-sm'
-                      : 'text-muted-foreground'
-                  }`}
-                  type="button"
-                >
-                  <Moon size={16} />
-                  تاریک
-                </button>
-              </div>
-            </div>
-
-            <div className="pt-4">
-              <p className="font-semibold text-foreground mb-4">
-                اندازه فونت نرم‌افزار
-              </p>
-
-              <input
-                type="range"
-                min="12"
-                max="20"
-                value={fontSize}
-                onChange={e => setFontSize(Number(e.target.value))}
-                className="w-full accent-primary"
-              />
-            </div>
-          </div>
-        </section>
-
-        <section className="bg-card border border-border rounded-2xl p-6 shadow-sm">
-          <div className="flex items-center gap-2 mb-6 border-b border-border pb-4">
-            <Download className="text-primary" size={20} />
-
-            <h3 className="text-lg font-bold text-foreground">
-              بکاپ و بازیابی اطلاعات سیستم
-            </h3>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <button
-              onClick={handleExportBackup}
-              className="flex items-center justify-between p-4 bg-muted/50 border border-border rounded-xl hover:border-primary/50 text-right"
-              type="button"
-            >
-              <div>
-                <p className="font-bold text-foreground">پشتیبان‌گیری</p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  دانلود فایل جامع داده‌ها همراه با لاگ فعالیت‌ها
-                </p>
-              </div>
-
-              <Download className="text-primary" size={20} />
-            </button>
-
-            <label className="flex items-center justify-between p-4 bg-muted/50 border border-border rounded-xl hover:border-primary/50 text-right cursor-pointer">
-              <div>
-                <p className="font-bold text-foreground">بازیابی اطلاعات</p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  بارگذاری فایل JSON بکاپ
-                </p>
-              </div>
-
-              <Upload className="text-primary" size={20} />
-
-              <input
-                type="file"
-                accept=".json"
-                onChange={handleImportBackup}
-                className="hidden"
-              />
-            </label>
+                      گزارشی برای نمایش وجود ندارد.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           </div>
         </section>
       </div>
 
-      {showPasswordModal && (
+      {showEditOnlineUserModal && editingOnlineUser && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
-          <div className="bg-card border border-border rounded-2xl p-6 w-full max-w-sm animate-in zoom-in-95 duration-200">
+          <div className="bg-card border border-border rounded-2xl p-6 w-full max-w-2xl animate-in zoom-in-95 shadow-2xl">
             <div className="flex justify-between items-center mb-6">
               <div className="flex items-center gap-2 text-primary font-bold">
-                <Lock size={18} />
-                تاییدیه امنیتی
+                <Pencil size={18} />
+                تغییر نام کاربری و رمز
               </div>
 
               <button
-                onClick={() => setShowPasswordModal(false)}
-                className="text-muted-foreground hover:text-foreground"
                 type="button"
+                onClick={() => {
+                  setShowEditOnlineUserModal(false);
+                  setEditingOnlineUser(null);
+                  setEditOnlinePassword('');
+                }}
+                className="text-muted-foreground hover:text-foreground cursor-pointer"
               >
                 <X size={20} />
               </button>
             </div>
 
-            <p className="text-xs text-muted-foreground mb-4">
-              برای انجام این عملیات، رمز عبور ارشد را وارد کنید.
-            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <input
+                value={editOnlineFullName}
+                onChange={e => setEditOnlineFullName(e.target.value)}
+                className="form-input"
+                placeholder="نام کامل"
+              />
+
+              <input
+                value={editOnlineUsername}
+                onChange={e => setEditOnlineUsername(e.target.value)}
+                className="form-input text-left"
+                dir="ltr"
+                placeholder="نام کاربری"
+              />
+
+              <div className="relative md:col-span-2">
+                <input
+                  value={editOnlinePassword}
+                  onChange={e => setEditOnlinePassword(e.target.value)}
+                  type={showEditOnlinePassword ? 'text' : 'password'}
+                  className="form-input text-left pl-10"
+                  dir="ltr"
+                  placeholder="رمز عبور جدید؛ اگر نمی‌خواهید تغییر کند خالی بگذارید"
+                />
+
+                <button
+                  type="button"
+                  onClick={() => setShowEditOnlinePassword(!showEditOnlinePassword)}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+                >
+                  {showEditOnlinePassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                </button>
+              </div>
+
+              <label className="md:col-span-2 flex items-center gap-2 text-sm text-foreground">
+                <input
+                  type="checkbox"
+                  checked={editOnlineActive}
+                  onChange={e => setEditOnlineActive(e.target.checked)}
+                  className="accent-primary"
+                  disabled={editingOnlineUser.id === onlineProfile?.id}
+                />
+                کاربر فعال باشد
+              </label>
+            </div>
+
+            {isProvinceStaffRole(editingOnlineUser.role) && (
+              <div className="mt-5">
+                <p className="text-xs font-bold text-muted-foreground mb-3">
+                  سطح دسترسی کاربر شهرستان
+                </p>
+
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                  {countyAccessModules.map(module => (
+                    <label
+                      key={module.id}
+                      className={`flex items-center gap-2 rounded-xl border p-3 text-xs cursor-pointer ${
+                        editOnlineAccess.includes(module.id)
+                          ? 'border-primary bg-primary/10 text-primary'
+                          : 'border-border bg-muted/30 text-muted-foreground'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={editOnlineAccess.includes(module.id)}
+                        onChange={() => toggleEditOnlineAccess(module.id)}
+                        className="accent-primary"
+                      />
+                      {module.label}
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="flex justify-end gap-3 mt-6">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowEditOnlineUserModal(false);
+                  setEditingOnlineUser(null);
+                  setEditOnlinePassword('');
+                }}
+                className="btn-secondary"
+              >
+                انصراف
+              </button>
+
+              <button
+                type="button"
+                onClick={updateOnlineUserCredentials}
+                disabled={onlineLoading}
+                className="btn-primary disabled:opacity-60"
+              >
+                ذخیره تغییرات
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showPasswordModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+          <div className="bg-card border border-border rounded-2xl p-6 w-full max-w-sm animate-in zoom-in-95 shadow-2xl">
+            <div className="flex justify-between items-center mb-6">
+              <div className="flex items-center gap-2 text-rose-600 font-bold">
+                <Lock size={18} />
+                تأیید رمز مدیریت
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setShowPasswordModal(false);
+                  setPasswordError(false);
+                  setPasswordInput('');
+                  setPendingAction(null);
+                }}
+                className="text-muted-foreground hover:text-foreground cursor-pointer"
+              >
+                <X size={20} />
+              </button>
+            </div>
 
             <input
               type="password"
-              placeholder="••••"
+              placeholder="رمز مدیریت"
               value={passwordInput}
               onChange={e => {
                 setPasswordInput(e.target.value);
@@ -1829,24 +2290,24 @@ export function SettingsSection({
               }}
               className={`w-full text-center tracking-widest text-lg p-3 rounded-xl border bg-input-background focus:outline-none transition-all ${
                 passwordError
-                  ? 'border-rose-500'
-                  : 'border-border focus:border-primary'
+                  ? 'border-rose-500 bg-rose-500/5'
+                  : 'border-border focus:border-rose-500'
               }`}
               autoFocus
             />
 
             {passwordError && (
               <p className="text-xs text-rose-500 text-center mt-2 font-medium">
-                رمز وارد شده اشتباه است.
+                رمز اشتباه است.
               </p>
             )}
 
             <button
-              onClick={verifyPassword}
-              className="w-full mt-5 bg-primary text-white font-bold py-3 rounded-xl"
               type="button"
+              onClick={verifyPassword}
+              className="w-full mt-5 bg-rose-600 hover:bg-rose-700 text-white font-bold py-3 rounded-xl cursor-pointer"
             >
-              تایید و ادامه
+              تأیید
             </button>
           </div>
         </div>
@@ -1854,75 +2315,88 @@ export function SettingsSection({
 
       {showAddUserModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
-          <div className="bg-card border border-border rounded-3xl p-6 w-full max-w-md animate-in slide-in-from-bottom-6 duration-300">
-            <div className="flex justify-between items-center mb-6 border-b border-border pb-4">
-              <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
-                <UserPlus size={20} />
-                تعریف کاربر محلی جدید
-              </h3>
-
-              <button
-                onClick={() => setShowAddUserModal(false)}
-                className="p-2 rounded-full hover:bg-muted"
-                type="button"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            <div className="space-y-4">
-              <input
-                type="text"
-                value={newUserName}
-                onChange={e => setNewUserName(e.target.value)}
-                placeholder="نام و نام خانوادگی"
-                className="w-full p-3 rounded-xl border border-border bg-input-background text-foreground outline-none text-sm"
-              />
-
-              <input
-                type="text"
-                dir="ltr"
-                value={newUserUsername}
-                onChange={e => setNewUserUsername(e.target.value)}
-                placeholder="نام کاربری"
-                className="w-full p-3 rounded-xl border border-border bg-input-background text-foreground outline-none text-sm text-left"
-              />
-
-              <div className="pt-2">
-                <label className="block text-xs font-bold text-foreground mb-3 flex items-center gap-2">
-                  <Shield size={14} className="text-emerald-500" />
-                  تعیین بخش‌های مجاز:
-                </label>
-
-                <div className="grid grid-cols-2 gap-2">
-                  {appModules.map(mod => {
-                    const hasAccess = newUserAccess.includes(mod.id);
-
-                    return (
-                      <button
-                        key={mod.id}
-                        onClick={() => toggleAccess(mod.id)}
-                        className={`flex items-center gap-2 p-2.5 rounded-xl border text-xs font-medium transition-all ${
-                          hasAccess
-                            ? 'bg-primary text-white'
-                            : 'bg-muted border-border text-muted-foreground'
-                        }`}
-                        type="button"
-                      >
-                        {hasAccess && <Check size={12} />}
-                        {mod.label}
-                      </button>
-                    );
-                  })}
-                </div>
+          <div className="bg-card border border-border rounded-2xl p-6 w-full max-w-2xl animate-in zoom-in-95 shadow-2xl">
+            <div className="flex justify-between items-center mb-6">
+              <div className="flex items-center gap-2 text-primary font-bold">
+                <UserPlus size={18} />
+                افزودن کاربر محلی
               </div>
 
               <button
-                onClick={handleAddUser}
-                className="w-full mt-6 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3.5 rounded-xl"
                 type="button"
+                onClick={() => {
+                  setShowAddUserModal(false);
+                  setNewUserName('');
+                  setNewUserUsername('');
+                  setNewUserAccess([]);
+                }}
+                className="text-muted-foreground hover:text-foreground cursor-pointer"
               >
-                ثبت کاربر محلی
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <input
+                value={newUserName}
+                onChange={e => setNewUserName(e.target.value)}
+                className="form-input"
+                placeholder="نام کاربر"
+              />
+
+              <input
+                value={newUserUsername}
+                onChange={e => setNewUserUsername(e.target.value)}
+                className="form-input text-left"
+                dir="ltr"
+                placeholder="نام کاربری"
+              />
+            </div>
+
+            <div className="mt-5">
+              <p className="text-xs font-bold text-muted-foreground mb-3">
+                دسترسی‌های کاربر محلی
+              </p>
+
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                {appModules.map(module => (
+                  <button
+                    key={module.id}
+                    type="button"
+                    onClick={() => toggleAccess(module.id)}
+                    className={`flex items-center gap-2 rounded-xl border p-3 text-xs font-bold ${
+                      newUserAccess.includes(module.id)
+                        ? 'border-primary bg-primary text-white'
+                        : 'border-border bg-muted/30 text-muted-foreground'
+                    }`}
+                  >
+                    {newUserAccess.includes(module.id) && <Check size={13} />}
+                    {module.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 mt-6">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAddUserModal(false);
+                  setNewUserName('');
+                  setNewUserUsername('');
+                  setNewUserAccess([]);
+                }}
+                className="btn-secondary"
+              >
+                انصراف
+              </button>
+
+              <button
+                type="button"
+                onClick={handleAddUser}
+                className="btn-primary"
+              >
+                ثبت کاربر
               </button>
             </div>
           </div>
@@ -1932,19 +2406,6 @@ export function SettingsSection({
   );
 }
 
-function StatBox({
-  label,
-  value,
-  color,
-}: {
-  label: string;
-  value: number;
-  color: string;
-}) {
-  return (
-    <div className="bg-muted/40 border border-border rounded-2xl p-4">
-      <p className="text-xs text-muted-foreground mb-1">{label}</p>
-      <p className={`text-2xl font-extrabold ${color}`}>{value}</p>
-    </div>
-  );
-}
+// اکسپورت دوگانه در انتهای فایل
+export { SettingsSection };
+export default SettingsSection;

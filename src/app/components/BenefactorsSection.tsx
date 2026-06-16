@@ -912,7 +912,7 @@ export function BenefactorsSection({ onBack }: Props) {
         );
 
         setBenefactors(dedupeBenefactors(local));
-        setSyncMessage(error?.message || 'خطا در دریافت اطلاعات آنلاین');
+        setSyncMessage(error?.message || 'خطا در دریافت اطلاعات برخط');
       }
     }
 
@@ -1129,7 +1129,7 @@ export function BenefactorsSection({ onBack }: Props) {
         '';
 
       if (!countyId) {
-        alert('شهرستان کاربر مشخص نیست. یک بار خارج شوید و دوباره آنلاین وارد شوید.');
+        alert('شهرستان کاربر مشخص نیست. یک بار خارج شوید و دوباره برخط وارد شوید.');
         return;
       }
     }
@@ -1248,14 +1248,14 @@ export function BenefactorsSection({ onBack }: Props) {
         next = dedupeBenefactors(next);
 
         updateList(next);
-        setSyncMessage('خیر ذخیره و آنلاین شد.');
+        setSyncMessage('خیر ذخیره و برخط شد.');
       } catch (error: any) {
-        setSyncMessage(error?.message || 'خیر محلی ذخیره شد اما آنلاین نشد.');
+        setSyncMessage(error?.message || 'خیر محلی ذخیره شد اما برخط نشد.');
       } finally {
         setSyncing(false);
       }
     } else {
-      setSyncMessage('خیر روی سیستم ذخیره شد و بعد از اتصال اینترنت سینک می‌شود.');
+      setSyncMessage('خیر روی سیستم ذخیره شد و بعد از اتصال اینترنت همگام سازی می‌شود.');
     }
   }
 
@@ -1286,7 +1286,7 @@ export function BenefactorsSection({ onBack }: Props) {
     if (navigator.onLine) {
       await syncAndReload(next);
     } else {
-      setSyncMessage('حذف خیر روی سیستم ثبت شد و بعد از اتصال اینترنت سینک می‌شود.');
+      setSyncMessage('حذف خیر روی سیستم ثبت شد و بعد از اتصال اینترنت همگام سازی می‌شود.');
     }
   }
 
@@ -1376,8 +1376,8 @@ export function BenefactorsSection({ onBack }: Props) {
           >
             {isOnline ? <Wifi size={15} /> : <WifiOff size={15} />}
             {isOnline
-              ? 'آنلاین - اتصال به سرور مرکزی برقرار است'
-              : 'آفلاین - تغییرات بعداً سینک می‌شود'}
+              ? 'برخط - اتصال به سرور مرکزی برقرار است'
+              : 'برون خط (آفلاین) - تغییرات بعداً همگام سازی می‌شود'}
           </div>
 
           <div className="rounded-2xl border border-border bg-card px-4 py-3 text-xs text-muted-foreground">
@@ -1473,7 +1473,7 @@ export function BenefactorsSection({ onBack }: Props) {
           <StatCard title="کل خیرین" value={totalDonors} icon={<Heart size={20} />} />
           <StatCard title="کمک‌ها" value={totalDonationsCount} icon={<Plus size={20} />} />
           <StatCard title="جمع کمک‌ها" valueText={formatRial(totalDonationsAmount)} icon={<Building2 size={20} />} />
-          <StatCard title="در انتظار سینک" value={pendingCount} icon={<CloudOff size={20} />} />
+          <StatCard title="در انتظار همگام سازی" value={pendingCount} icon={<CloudOff size={20} />} />
         </div>
 
         <div className="relative mb-4">
@@ -1505,7 +1505,7 @@ export function BenefactorsSection({ onBack }: Props) {
                     'شهر',
                     'تعداد کمک',
                     'جمع کمک‌ها',
-                    'وضعیت سینک',
+                    'وضعیت همگام سازی',
                     'عملیات',
                   ].map(h => (
                     <th
@@ -1944,7 +1944,7 @@ function SyncBadge({ item }: { item: Benefactor }) {
     return (
       <span className="inline-flex items-center gap-1 rounded-full bg-green-100 text-green-700 px-2 py-1 text-xs font-bold">
         <Cloud size={12} />
-        سینک‌شده
+        همگام سازی‌شده
       </span>
     );
   }
@@ -1964,7 +1964,7 @@ function SyncBadge({ item }: { item: Benefactor }) {
   return (
     <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 text-amber-700 px-2 py-1 text-xs font-bold">
       <CloudOff size={12} />
-      در انتظار سینک
+      در انتظار همگام سازی
     </span>
   );
 }
