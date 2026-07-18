@@ -93,13 +93,12 @@ interface SMSHistory {
 type AISource = 'idle' | 'online' | 'offline';
 
 /*
-  کلید ChatGPT خودت را اینجا قرار بده.
-  مثال:
-  const DEFAULT_OPENAI_API_KEY = 'sk-proj-xxxxxxxxxxxxxxxxxxxxxxxx';
+  کلید Gemini خودت را اینجا قرار بده.
+  توجه: کلیدهای گوگل معمولاً با AIza شروع می‌شوند.
 */
-const DEFAULT_OPENAI_API_KEY = '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';
+const DEFAULT_GEMINI_API_KEY = 'AQ.Ab8RN6KpP9d0VqP5V0x1prda2DGcVpXcMdwXR04MCfqwtEf5nA';
 
-const DEFAULT_OPENAI_MODEL = 'gpt-4.1-mini';
+const DEFAULT_GEMINI_MODEL = 'gemini-1.5-flash';
 
 const SELECTED_PROVINCE_KEY = 'nafas_sms_selected_province';
 const SELECTED_COUNTY_KEY = 'nafas_sms_selected_county';
@@ -316,7 +315,7 @@ function buildLocalSuggestion(aiPurpose: string, aiTone: string, aiDetails: stri
 function getAISourceBox(aiSource: AISource) {
   if (aiSource === 'online') {
     return {
-      label: 'متن برخط با ChatGPT ساخته شد',
+      label: 'متن برخط با Gemini ساخته شد',
       icon: Wifi,
       className: 'bg-green-100 text-green-700 border-green-200',
     };
@@ -456,10 +455,10 @@ export function SMSPanel({ onBack }: Props) {
   const [showPassword, setShowPassword] = useState(false);
   const [settingsSaved, setSettingsSaved] = useState(false);
 
-  const openaiApiKey = DEFAULT_OPENAI_API_KEY;
+  const geminiApiKey = DEFAULT_GEMINI_API_KEY;
 
   const [aiModel, setAiModel] = useState(
-    () => localStorage.getItem('nafas_openai_model') || DEFAULT_OPENAI_MODEL,
+    () => localStorage.getItem('nafas_gemini_model') || DEFAULT_GEMINI_MODEL,
   );
 
   const [showAiKey, setShowAiKey] = useState(false);
@@ -955,7 +954,7 @@ export function SMSPanel({ onBack }: Props) {
   }
 
   function handleSaveAISettings() {
-    localStorage.setItem('nafas_openai_model', aiModel);
+    localStorage.setItem('nafas_gemini_model', aiModel);
 
     setAiSettingsSaved(true);
     setTimeout(() => setAiSettingsSaved(false), 2000);
@@ -1171,14 +1170,15 @@ export function SMSPanel({ onBack }: Props) {
 
     const localSuggestion = buildLocalSuggestion(aiPurpose, aiTone, aiDetails);
 
-    if (!openaiApiKey.trim() || openaiApiKey.includes('اینجا کلید')) {
+    if (!geminiApiKey.trim() || geminiApiKey.includes('اینجا کلید')) {
       setAiResult(localSuggestion);
       setAiSource('offline');
       setAiLoading(false);
       return;
     }
 
-    const prompt = `
+    const prompt = `تو یک دستیار حرفه‌ای و مهربان فارسی برای نگارش پیامک‌های رسمی، انسانی، کوتاه و مناسب مرکز حمایتی مادران هستی.
+    
 یک متن پیامک فارسی برای سامانه مرکز مردمی نفس بنویس.
 
 موضوع پیامک: ${getPurposeLabel(aiPurpose)}
@@ -1191,49 +1191,43 @@ export function SMSPanel({ onBack }: Props) {
 - محترمانه، انسانی و گرم باشد.
 - اگر مخاطب مادر است از عبارت خانم {name} استفاده کن.
 - اگر مخاطب خیر است از عبارت خیر گرامی {name} استفاده کن.
-- فقط متن نهایی پیامک را بده.
+- فقط و فقط متن نهایی پیامک را خروجی بده و هیچ توضیح اضافه‌ای ننویس.
 `;
 
     try {
-      const response = await fetch('https://api.openai.com/v1/responses', {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${aiModel || DEFAULT_GEMINI_MODEL}:generateContent?key=${geminiApiKey}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${openaiApiKey}`,
         },
         body: JSON.stringify({
-          model: aiModel || DEFAULT_OPENAI_MODEL,
-          instructions:
-            'تو یک دستیار فارسی برای نگارش پیامک‌های رسمی، انسانی، کوتاه و مناسب مرکز حمایتی مادران هستی.',
-          input: prompt,
-          max_output_tokens: 350,
+          contents: [{
+            parts: [{ text: prompt }]
+          }],
+          generationConfig: {
+            maxOutputTokens: 350,
+          }
         }),
       });
 
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data?.error?.message || 'خطا در پاسخ ChatGPT');
+        throw new Error(data?.error?.message || 'خطا در پاسخ هوش مصنوعی گوگل');
       }
 
-      const outputText =
-        data?.output_text ||
-        data?.output
-          ?.flatMap((item: any) => item.content || [])
-          ?.map((content: any) => content.text || '')
-          ?.join('')
-          ?.trim() ||
-        '';
+      // مسیر دسترسی به جواب در ساختار جیسون گوگل
+      const outputText = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
 
       if (!outputText) {
-        throw new Error('متنی از ChatGPT دریافت نشد.');
+        throw new Error('متنی از گوگل دریافت نشد.');
       }
 
       setAiResult(outputText.trim());
       setAiSource('online');
     } catch (error) {
       console.error(error);
-      setAiError('اتصال به ChatGPT انجام نشد؛ متن پیشنهادی برون خط (آفلاین) ساخته شد.');
+      setAiError('اتصال به هوش مصنوعی گوگل انجام نشد؛ متن پیشنهادی برون خط (آفلاین) ساخته شد.');
       setAiResult(localSuggestion);
       setAiSource('offline');
     } finally {
@@ -1497,7 +1491,7 @@ export function SMSPanel({ onBack }: Props) {
                       متن‌یار نفس
                     </h3>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      تولید متن پیامک با ChatGPT ثابت داخل کد
+                      تولید متن پیامک با کمک هوش مصنوعی
                     </p>
                   </div>
                 </div>
@@ -1564,7 +1558,7 @@ export function SMSPanel({ onBack }: Props) {
 
               <div className="mb-3">
                 <label className="block text-xs text-muted-foreground mb-1">
-                  توضیح کوتاه برای ChatGPT
+                  توضیح کوتاه برای هوش مصنوعی
                 </label>
 
                 <textarea
@@ -1693,7 +1687,7 @@ export function SMSPanel({ onBack }: Props) {
               <div className="flex items-center gap-2 mb-4 text-primary">
                 <Sparkles size={16} />
                 <h3 className="text-foreground font-bold">
-                  تنظیمات ChatGPT
+                  تنظیمات هوش مصنوعی (Gemini)
                 </h3>
               </div>
 
@@ -1706,7 +1700,7 @@ export function SMSPanel({ onBack }: Props) {
                   <div className="relative">
                     <input
                       type={showAiKey ? 'text' : 'password'}
-                      value={openaiApiKey}
+                      value={geminiApiKey}
                       readOnly
                       className="form-input text-xs pl-8 bg-muted/40 cursor-not-allowed"
                       placeholder="کلید داخل کد قرار داده شده است"
@@ -1728,14 +1722,14 @@ export function SMSPanel({ onBack }: Props) {
 
                 <div>
                   <label className="block text-xs text-muted-foreground mb-1">
-                    مدل ChatGPT
+                    مدل Gemini
                   </label>
 
                   <input
                     value={aiModel}
                     onChange={e => setAiModel(e.target.value)}
                     className="form-input text-xs"
-                    placeholder="gpt-4.1-mini"
+                    placeholder="gemini-1.5-flash"
                   />
                 </div>
 
@@ -1749,7 +1743,7 @@ export function SMSPanel({ onBack }: Props) {
                   }`}
                 >
                   <Save size={14} />
-                  {aiSettingsSaved ? 'تنظیمات ذخیره شد ✓' : 'ذخیره مدل ChatGPT'}
+                  {aiSettingsSaved ? 'تنظیمات ذخیره شد ✓' : 'ذخیره مدل هوش مصنوعی'}
                 </button>
               </div>
             </div>

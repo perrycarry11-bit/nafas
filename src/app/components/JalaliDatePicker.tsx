@@ -9,13 +9,31 @@ interface Props {
   label?: string;
 }
 
-export function JalaliDatePicker({ value, onChange, placeholder = 'انتخاب تاریخ', label }: Props) {
+// تابع کمکی برای تبدیل اعداد فارسی به انگلیسی (برای تایپ راحت‌تر کاربر)
+function toEnglishNumber(str: string) {
+  const persianNumbers = [/۰/g, /۱/g, /۲/g, /۳/g, /۴/g, /۵/g, /۶/g, /۷/g, /۸/g, /۹/g];
+  const arabicNumbers  = [/٠/g, /١/g, /٢/g, /٣/g, /٤/g, /٥/g, /٦/g, /٧/g, /٨/g, /٩/g];
+  let result = str;
+  for (let i = 0; i < 10; i++) {
+    result = result.replace(persianNumbers[i], String(i)).replace(arabicNumbers[i], String(i));
+  }
+  return result;
+}
+
+export function JalaliDatePicker({ value, onChange, placeholder = '13XX/XX/XX', label }: Props) {
   const [open, setOpen] = useState(false);
   const today = new Date();
   const [jy, jm, jd] = toJalaliArr(today.getFullYear(), today.getMonth() + 1, today.getDate());
+  
   const [viewYear, setViewYear] = useState(value ? parseInt(value.split('/')[0]) : jy);
   const [viewMonth, setViewMonth] = useState(value ? parseInt(value.split('/')[1]) - 1 : jm - 1);
+  const [inputValue, setInputValue] = useState(value || '');
   const ref = useRef<HTMLDivElement>(null);
+
+  // هماهنگ‌سازی مقدار تایپ شده با مقدار انتخابی
+  useEffect(() => {
+    setInputValue(value || '');
+  }, [value]);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
@@ -31,36 +49,88 @@ export function JalaliDatePicker({ value, onChange, placeholder = 'انتخاب 
   function select(d: number) {
     const dateStr = `${viewYear}/${String(viewMonth + 1).padStart(2, '0')}/${String(d).padStart(2, '0')}`;
     onChange(dateStr);
+    setInputValue(dateStr);
     setOpen(false);
+  }
+
+  // مدیریت تایپ دستی کاربر
+  function handleInputChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const val = e.target.value;
+    setInputValue(val);
+    const enVal = toEnglishNumber(val);
+    
+    // بررسی فرمت صحیح تاریخ (YYYY/MM/DD)
+    if (/^\d{4}\/\d{1,2}\/\d{1,2}$/.test(enVal)) {
+      onChange(enVal);
+      const [y, m] = enVal.split('/');
+      setViewYear(parseInt(y));
+      setViewMonth(parseInt(m) - 1);
+    } else if (val === '') {
+      onChange('');
+    }
   }
 
   const selectedDay = value && value.split('/')[0] === String(viewYear) && parseInt(value.split('/')[1]) - 1 === viewMonth
     ? parseInt(value.split('/')[2]) : null;
 
+  // تولید لیست سال‌ها (از 100 سال پیش تا 10 سال آینده)
+  const yearOptions = Array.from({ length: 111 }).map((_, i) => jy - 100 + i);
+
   return (
     <div className="relative" ref={ref}>
       {label && <label className="block text-sm text-muted-foreground mb-1">{label}</label>}
-      <button
-        type="button"
-        onClick={() => setOpen(o => !o)}
-        className="w-full flex items-center justify-between gap-2 px-3 py-2 rounded-lg border border-border bg-input-background text-foreground hover:border-primary transition-colors text-sm"
-      >
-        <Calendar size={15} className="text-muted-foreground flex-shrink-0" />
-        <span className="flex-1 text-right">{value ? `${toPersianNumber(value.split('/')[2])} ${jalaliMonths[parseInt(value.split('/')[1])-1]} ${toPersianNumber(value.split('/')[0])}` : <span className="text-muted-foreground">{placeholder}</span>}</span>
-      </button>
+      
+      {/* تغییر دکمه به اینپوت برای قابلیت تایپ */}
+      <div className="w-full flex items-center justify-between gap-2 px-3 py-2 rounded-lg border border-border bg-input-background text-foreground focus-within:border-primary transition-colors text-sm">
+        <Calendar size={15} className="text-muted-foreground flex-shrink-0 cursor-pointer" onClick={() => setOpen(o => !o)} />
+        <input
+          type="text"
+          value={inputValue}
+          onChange={handleInputChange}
+          onFocus={() => setOpen(true)}
+          placeholder={placeholder}
+          className="flex-1 bg-transparent border-none outline-none text-right text-foreground w-full"
+          dir="ltr"
+        />
+      </div>
 
       {open && (
         <div className="absolute top-full mt-1 left-0 z-50 bg-card border border-border rounded-xl shadow-xl p-3 w-64" dir="rtl">
           {/* Header */}
           <div className="flex items-center justify-between mb-2">
             <button onClick={() => { if (viewMonth === 0) { setViewMonth(11); setViewYear(y => y - 1); } else setViewMonth(m => m - 1); }} className="p-1 rounded hover:bg-muted text-foreground">›</button>
-            <span className="text-sm font-semibold text-foreground">{jalaliMonths[viewMonth]} {toPersianNumber(viewYear)}</span>
+            
+            {/* اضافه شدن Dropdown برای انتخاب سریع سال و ماه */}
+            <div className="flex gap-1">
+              <select 
+                value={viewMonth} 
+                onChange={(e) => setViewMonth(parseInt(e.target.value))}
+                className="bg-transparent text-sm font-semibold text-foreground outline-none cursor-pointer p-1 rounded hover:bg-muted appearance-none text-center"
+              >
+                {jalaliMonths.map((m, i) => (
+                  <option key={m} value={i} className="bg-card text-foreground">{m}</option>
+                ))}
+              </select>
+              
+              <select 
+                value={viewYear} 
+                onChange={(e) => setViewYear(parseInt(e.target.value))}
+                className="bg-transparent text-sm font-semibold text-foreground outline-none cursor-pointer p-1 rounded hover:bg-muted appearance-none text-center"
+              >
+                {yearOptions.map(y => (
+                  <option key={y} value={y} className="bg-card text-foreground">{toPersianNumber(y)}</option>
+                ))}
+              </select>
+            </div>
+
             <button onClick={() => { if (viewMonth === 11) { setViewMonth(0); setViewYear(y => y + 1); } else setViewMonth(m => m + 1); }} className="p-1 rounded hover:bg-muted text-foreground">‹</button>
           </div>
+          
           {/* Week days */}
           <div className="grid grid-cols-7 mb-1">
             {weekDays.map(d => <div key={d} className="text-center text-xs text-muted-foreground py-1">{d}</div>)}
           </div>
+          
           {/* Days */}
           <div className="grid grid-cols-7 gap-0.5">
             {Array.from({ length: firstDayOfWeek }).map((_, i) => <div key={`e${i}`} />)}
@@ -81,6 +151,8 @@ export function JalaliDatePicker({ value, onChange, placeholder = 'انتخاب 
     </div>
   );
 }
+
+// === توابع محاسباتی تاریخ (بدون تغییر) ===
 
 function toJalaliArr(gy: number, gm: number, gd: number): [number, number, number] {
   const g_d_no = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
@@ -123,12 +195,10 @@ function isJalaliLeap(jy: number): boolean {
 }
 
 function getJalaliFirstDayOfWeek(jy: number, jm: number): number {
-  // Convert Jalali to Gregorian to find the day of week
   const [gy, gm, gd] = jalaliToGregorian(jy, jm, 1);
   const date = new Date(gy, gm - 1, gd);
-  const dow = date.getDay(); // 0=Sun,1=Mon,...,6=Sat
-  // Jalali week starts on Saturday (6 in JS)
-  return (dow + 1) % 7; // Sat=0, Sun=1, Mon=2...
+  const dow = date.getDay(); 
+  return (dow + 1) % 7; 
 }
 
 function jalaliToGregorian(jy: number, jm: number, jd: number): [number, number, number] {

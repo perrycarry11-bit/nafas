@@ -25,7 +25,7 @@ import { getCurrentOnlineUser } from '../utils/onlineAuth';
 
 interface Donation {
   id: string;
-  type: string;
+  type: string[]; // تبدیل به آرایه برای پشتیبانی از چند نوع کمک همزمان
   title: string;
   amount: string;
   date: string;
@@ -330,9 +330,22 @@ function calcTotalDonations(item: Benefactor) {
 }
 
 function normalizeDonation(item: any): Donation {
+  // تبدیل دیتای متنی قدیمی به آرایه برای پشتیبانی از فرمت جدید چک‌باکس‌ها
+  let parsedType: string[] = [];
+  if (Array.isArray(item.type)) {
+    parsedType = item.type;
+  } else if (typeof item.type === 'string' && item.type.trim() !== '') {
+    // مشکل تایپ اسکریپت با تعریف دقیق نوع (s: string) برطرف شد
+    parsedType = item.type.split(',').map((s: string) => s.trim()).filter(Boolean);
+  }
+
+  if (parsedType.length === 0) {
+    parsedType = ['مالی'];
+  }
+
   return {
     id: item.id || makeId(),
-    type: item.type || 'مالی',
+    type: parsedType,
     title: item.title || '',
     amount: item.amount || '',
     date: item.date || todayJalali(),
@@ -1835,7 +1848,7 @@ function DonationsEditor({
               ...prev.donations,
               {
                 id: makeId(),
-                type: 'مالی',
+                type: ['مالی'], // پیش‌فرض جدید برای آرایه
                 title: '',
                 amount: '',
                 date: todayJalali(),
@@ -1872,14 +1885,34 @@ function DonationsEditor({
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label text="نوع کمک" />
-
-                <SelectField
-                  value={donation.type}
-                  onChange={v => updateDonation(donation.id, { type: v })}
-                  options={DONATION_TYPES}
-                />
+              
+              {/* بخش جدید چک‌باکس‌ها به جای لیست کشویی */}
+              <div className="md:col-span-2 bg-muted/20 p-3 rounded-lg border border-border">
+                <Label text="نوع کمک (می‌توانید چند مورد را همزمان انتخاب کنید)" />
+                <div className="flex flex-wrap gap-4 mt-2">
+                  {DONATION_TYPES.map(typeOption => {
+                    const isChecked = donation.type.includes(typeOption);
+                    return (
+                      <label key={typeOption} className="flex items-center gap-1.5 cursor-pointer text-sm hover:opacity-80 transition-opacity">
+                        <input
+                          type="checkbox"
+                          className="w-4 h-4 text-primary rounded border-border focus:ring-primary"
+                          checked={isChecked}
+                          onChange={(e) => {
+                            let nextTypes = [...donation.type];
+                            if (e.target.checked) {
+                              if (!nextTypes.includes(typeOption)) nextTypes.push(typeOption);
+                            } else {
+                              nextTypes = nextTypes.filter(t => t !== typeOption);
+                            }
+                            updateDonation(donation.id, { type: nextTypes });
+                          }}
+                        />
+                        <span className="text-foreground pt-0.5">{typeOption}</span>
+                      </label>
+                    );
+                  })}
+                </div>
               </div>
 
               <TextInput
@@ -1894,11 +1927,13 @@ function DonationsEditor({
                 onChange={v => updateDonation(donation.id, { amount: v })}
               />
 
-              <JalaliDatePicker
-                label="تاریخ شمسی"
-                value={donation.date}
-                onChange={v => updateDonation(donation.id, { date: v })}
-              />
+              <div className="md:col-span-2">
+                <JalaliDatePicker
+                  label="تاریخ شمسی"
+                  value={donation.date}
+                  onChange={v => updateDonation(donation.id, { date: v })}
+                />
+              </div>
 
               <div className="md:col-span-2">
                 <TextAreaInput
